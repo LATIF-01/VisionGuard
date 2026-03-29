@@ -71,3 +71,10 @@ ultralytics==8.4.26
 ultralytics-thop==2.0.18
 urllib3==2.6.3
 yacs==0.1.8
+SQLAlchemy==2.0.44
+psycopg2-binary==2.9.11
+python-dotenv==1.1.1
+fastapi==0.118.2
+starlette==0.48.0
+uvicorn==0.37.0
+pydantic==2.11.10
