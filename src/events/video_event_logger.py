@@ -43,6 +43,11 @@ class VideoEventLogger:
 		event.update(payload)
 		self.log(event)
 
+	def log_alert(self, payload: Dict[str, Any]) -> None:
+		event = {"event": "alert"}
+		event.update(payload)
+		self.log(event)
+
 	def close(self) -> None:
 		if self._fh and not self._fh.closed:
 			self._fh.flush()

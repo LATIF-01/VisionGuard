@@ -6,6 +6,10 @@ import cv2
 import numpy as np
 from ultralytics import YOLO
 
+from src.alerts.engine import ActionAlertEngine
+from src.alerts.models import AlertRule
+from src.alerts.rule_loader import load_alert_rules
+from src.events.db_event_sink import DBEventSink
 from src.events.video_event_logger import VideoEventLogger
 from src.models.action.x3d_recognizer import (
 	X3DRecognizer,
@@ -52,6 +56,24 @@ def run(args) -> None:
 	next_stable_id = 1
 	frame_idx = 0
 	event_logger = VideoEventLogger(args.event_log_path, args.event_log_flush_every) if args.event_log_path else None
+	db_sink = None
+	alert_engine = None
+
+	if args.enable_alerts:
+		configured_rules = load_alert_rules(args.alert_rules_path)
+		if not configured_rules:
+			configured_rules = [
+				AlertRule(
+					name="default_high_conf_action",
+					severity="medium",
+					action_labels=None,
+					min_action_score=float(args.alert_min_score),
+					min_consecutive_hits=int(args.alert_min_consecutive),
+					cooldown_frames=int(args.alert_cooldown_frames),
+					message_template="High-confidence action '{action_label}' detected for subject {stable_id}.",
+				)
+			]
+		alert_engine = ActionAlertEngine(configured_rules)
 
 	def probe_and_query(raw_id: int, fallback_embedding: np.ndarray) -> Tuple[Deque[np.ndarray], np.ndarray]:
 		probe = raw_probe_gallery[raw_id]
@@ -114,6 +136,16 @@ def run(args) -> None:
 	fps = cap.get(cv2.CAP_PROP_FPS) or 25.0
 	frame_w = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
 	frame_h = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+
+	if args.save_events_db:
+		db_sink = DBEventSink(
+			input_path=args.input,
+			output_path=args.output,
+			fps=float(fps),
+			frame_width=frame_w,
+			frame_height=frame_h,
+			run_name=args.db_run_name,
+		)
 
 	writer = cv2.VideoWriter(
 		args.output,
@@ -321,26 +353,47 @@ def run(args) -> None:
 
 				text = f"ID {stable_id} obj:{obj_label} det:{conf:.2f} | {action_text}"
 
+				event_payload = {
+					"frame_idx": frame_idx,
+					"timestamp_s": round(frame_idx / max(fps, 1e-6), 3),
+					"raw_track_id": raw_track_id,
+					"stable_id": int(stable_id),
+					"stable_id_event": stable_id_event,
+					"object_label": obj_label,
+					"det_conf": round(float(conf), 4),
+					"bbox_xyxy": [int(x1), int(y1), int(x2), int(y2)],
+					"mask_ratio": round(float(mask_ratio), 4),
+					"identity_update_ok": bool(identity_update_ok),
+					"memory_update_ok": bool(memory_update_ok),
+					"action_label": action_label,
+					"action_score": round(float(action_score), 4),
+					"reid_best_sim": None if reid_best_sim is None else round(float(reid_best_sim), 4),
+					"reid_second_best_sim": None if reid_second_best_sim is None else round(float(reid_second_best_sim), 4),
+				}
+
 				if event_logger is not None:
-					event_logger.log_track(
-						{
-							"frame_idx": frame_idx,
-							"timestamp_s": round(frame_idx / max(fps, 1e-6), 3),
-							"raw_track_id": raw_track_id,
-							"stable_id": int(stable_id),
-							"stable_id_event": stable_id_event,
-							"object_label": obj_label,
-							"det_conf": round(float(conf), 4),
-							"bbox_xyxy": [int(x1), int(y1), int(x2), int(y2)],
-							"mask_ratio": round(float(mask_ratio), 4),
-							"identity_update_ok": bool(identity_update_ok),
-							"memory_update_ok": bool(memory_update_ok),
-							"action_label": action_label,
-							"action_score": round(float(action_score), 4),
-							"reid_best_sim": None if reid_best_sim is None else round(float(reid_best_sim), 4),
-							"reid_second_best_sim": None if reid_second_best_sim is None else round(float(reid_second_best_sim), 4),
+					event_logger.log_track(event_payload)
+				if db_sink is not None:
+					db_sink.add_track_event(event_payload)
+
+				if alert_engine is not None and alert_engine.has_rules:
+					generated_alerts = alert_engine.process_track_event(event_payload)
+					for alert in generated_alerts:
+						alert_payload = {
+							"rule_name": alert.rule_name,
+							"severity": alert.severity,
+							"stable_id": alert.stable_id,
+							"action_label": alert.action_label,
+							"action_score": round(float(alert.action_score), 4),
+							"frame_idx": alert.frame_idx,
+							"timestamp_s": round(float(alert.timestamp_s), 3),
+							"message": alert.message,
+							"metadata": alert.metadata,
 						}
-					)
+						if event_logger is not None:
+							event_logger.log_alert(alert_payload)
+						if db_sink is not None:
+							db_sink.add_alert(alert_payload)
 
 				cv2.rectangle(frame, (x1, y1), (x2, y2), (30, 220, 30), 2)
 				cv2.putText(
@@ -365,6 +418,9 @@ def run(args) -> None:
 
 	cap.release()
 	writer.release()
+	if db_sink is not None:
+		db_sink.finalize(total_frames=frame_idx)
+		print(f"Saved deduplicated events to DB run_id: {db_sink.run_id}")
 	if event_logger is not None:
 		event_logger.close()
 		print(f"Saved event log to: {args.event_log_path}")
