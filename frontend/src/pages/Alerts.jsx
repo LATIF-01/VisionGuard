@@ -52,11 +52,31 @@ function mapActionAlert(apiAlert, run) {
   };
 }
 
+/** Same dismiss control as alert cards (X, top-right) */
+function DismissIconButton({ onDismiss, ariaLabel }) {
+  return (
+    <button
+      type="button"
+      onClick={(e) => {
+        e.stopPropagation();
+        onDismiss?.();
+      }}
+      className="absolute top-3 right-3 p-1.5 rounded-lg text-vg-text-muted hover:text-white hover:bg-white/10 transition-colors"
+      aria-label={ariaLabel}
+    >
+      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+      </svg>
+    </button>
+  );
+}
+
 export default function Alerts() {
   const [alerts, setAlerts] = useState([]);
   const [loading, setLoading] = useState(true);
   /** 'api' | 'mock' — mock only when fetch fails (no global GET /alerts exists yet; we use /runs + /runs/{id}/alerts) */
   const [source, setSource] = useState('api');
+  const [offlineBannerDismissed, setOfflineBannerDismissed] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -118,8 +138,12 @@ export default function Alerts() {
         </div>
       </div>
 
-      {source === 'mock' && (
-        <div className="rounded-lg border border-vg-warning/40 bg-vg-warning/10 px-4 py-3 text-sm text-vg-text-muted">
+      {source === 'mock' && !offlineBannerDismissed && (
+        <div className="relative rounded-lg border border-vg-warning/40 bg-vg-warning/10 px-4 py-3 pr-11 sm:pr-12 text-sm text-vg-text-muted">
+          <DismissIconButton
+            onDismiss={() => setOfflineBannerDismissed(true)}
+            ariaLabel="Dismiss offline notice"
+          />
           Could not reach the API at {getApiBaseUrl()}. Showing offline demo alerts until the backend is running.
         </div>
       )}
@@ -149,6 +173,9 @@ export default function Alerts() {
               key={alert.id}
               alert={alert}
               style={{ animationDelay: `${index * 50}ms` }}
+              onDismiss={() =>
+                setAlerts((prev) => prev.filter((a) => a.id !== alert.id))
+              }
             />
           ))}
       </div>
@@ -182,19 +209,20 @@ function FilterButton({ children, active = false }) {
   );
 }
 
-function AlertCard({ alert, style }) {
+function AlertCard({ alert, style, onDismiss }) {
   const config = severityConfig[alert.type];
   const timestamp = new Date(alert.timestamp);
 
   return (
     <div
       className={`
-        card p-4 cursor-pointer animate-fade-in
+        relative card p-4 pr-11 sm:pr-12 cursor-pointer animate-fade-in
         ${config.bg} ${config.border} border
         hover:border-opacity-60 transition-all duration-200
       `}
       style={style}
     >
+      <DismissIconButton onDismiss={onDismiss} ariaLabel="Dismiss alert" />
       <div className="flex flex-col sm:flex-row sm:items-start gap-4">
         <div className="flex gap-4 flex-1">
           <div className="text-2xl flex-shrink-0">{config.icon}</div>
