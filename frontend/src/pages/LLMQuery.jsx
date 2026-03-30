@@ -1,27 +1,137 @@
 import { useState, useRef, useEffect } from 'react';
+import { apiFetchJson } from '../lib/api';
 import { mockChatHistory } from '../data/mockChat';
 
 export default function LLMQuery() {
-  const [messages, setMessages] = useState(mockChatHistory);
+  const [messages, setMessages] = useState([]);
   const [inputValue, setInputValue] = useState('');
+  const [runId, setRunId] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [sending, setSending] = useState(false);
+  /** When true, initial chat uses mock data because /runs or /runs/:id/context failed */
+  const [useMockFallback, setUseMockFallback] = useState(false);
   const chatEndRef = useRef(null);
+  const nextId = useRef(1);
 
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
-  const handleSend = () => {
-    if (!inputValue.trim()) return;
-    
-    const newMessage = {
-      id: messages.length + 1,
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadContext() {
+      setLoading(true);
+      try {
+        const runs = await apiFetchJson('/runs?limit=1');
+        if (cancelled) return;
+
+        if (!runs.length) {
+          setRunId(null);
+          setMessages([
+            {
+              id: 'no-run',
+              role: 'assistant',
+              content:
+                'No video runs found in the database. Ingest and process a video via the VisionGuard pipeline, then you can ask questions about that run.',
+              timestamp: new Date().toISOString(),
+            },
+          ]);
+          setUseMockFallback(false);
+          return;
+        }
+
+        const id = runs[0].id;
+        setRunId(id);
+
+        const ctx = await apiFetchJson(`/runs/${id}/context`);
+        if (cancelled) return;
+
+        setMessages([
+          {
+            id: 'ctx-summary',
+            role: 'assistant',
+            content: `**VisionGuard LLM** — connected to run \`${id.slice(0, 8)}…\`\n\n${ctx.summary}`,
+            timestamp: new Date().toISOString(),
+          },
+        ]);
+        setUseMockFallback(false);
+      } catch {
+        if (!cancelled) {
+          setRunId(null);
+          setMessages(mockChatHistory);
+          setUseMockFallback(true);
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    }
+
+    loadContext();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const handleSend = async () => {
+    if (!inputValue.trim() || sending) return;
+
+    const content = inputValue.trim();
+    const userMessage = {
+      id: `u-${nextId.current++}`,
       role: 'user',
-      content: inputValue,
+      content,
       timestamp: new Date().toISOString(),
     };
-    
-    setMessages([...messages, newMessage]);
+
+    setMessages((m) => [...m, userMessage]);
     setInputValue('');
+
+    if (!runId || useMockFallback) {
+      setMessages((m) => [
+        ...m,
+        {
+          id: `a-${nextId.current++}`,
+          role: 'assistant',
+          content:
+            useMockFallback
+              ? 'Demo mode: connect the API (see .env VITE_API_BASE_URL) and ensure a video run exists to use POST /runs/{run_id}/llm.'
+              : 'No run selected. Create a video run in the backend first.',
+          timestamp: new Date().toISOString(),
+        },
+      ]);
+      return;
+    }
+
+    setSending(true);
+    try {
+      const data = await apiFetchJson(`/runs/${runId}/llm`, {
+        method: 'POST',
+        body: JSON.stringify({ question: content }),
+      });
+      const answer = data?.answer != null ? String(data.answer) : JSON.stringify(data);
+      setMessages((m) => [
+        ...m,
+        {
+          id: `a-${nextId.current++}`,
+          role: 'assistant',
+          content: answer,
+          timestamp: new Date().toISOString(),
+        },
+      ]);
+    } catch (e) {
+      setMessages((m) => [
+        ...m,
+        {
+          id: `a-${nextId.current++}`,
+          role: 'assistant',
+          content: `Request failed: ${e.message}`,
+          timestamp: new Date().toISOString(),
+        },
+      ]);
+    } finally {
+      setSending(false);
+    }
   };
 
   const handleKeyDown = (e) => {
@@ -33,51 +143,61 @@ export default function LLMQuery() {
 
   return (
     <div className="h-[calc(100vh-8rem)] lg:h-[calc(100vh-4rem)] flex flex-col">
-      {/* Header */}
       <div className="flex-shrink-0 pb-4 border-b border-white/10">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-lg bg-vg-accent/20 flex items-center justify-center">
             <svg className="w-5 h-5 text-vg-accent" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
-                d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"
+              />
             </svg>
           </div>
           <div>
             <h1 className="text-xl font-bold text-white">VisionGuard LLM</h1>
-            <p className="text-vg-text-muted text-sm">Natural language event queries</p>
+            <p className="text-vg-text-muted text-sm">
+              Natural language event queries
+              {runId && !useMockFallback && (
+                <span className="ml-2 text-vg-accent/80">· Run {runId.slice(0, 8)}…</span>
+              )}
+            </p>
           </div>
         </div>
       </div>
 
-      {/* Chat messages area */}
+      {useMockFallback && (
+        <div className="mt-3 rounded-lg border border-vg-warning/40 bg-vg-warning/10 px-4 py-2 text-xs text-vg-text-muted">
+          API unavailable — showing demo conversation. Set VITE_API_BASE_URL and start FastAPI to use live LLM (
+          POST /runs/&lt;run_id&gt;/llm).
+        </div>
+      )}
+
       <div className="flex-1 overflow-y-auto py-4 space-y-4">
-        {/* Welcome message */}
         <div className="text-center py-6">
           <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-vg-card border border-white/10 text-sm text-vg-text-muted">
             <span className="w-2 h-2 rounded-full bg-vg-success animate-pulse" />
-            VisionGuard LLM is ready
+            {loading ? 'Connecting…' : 'VisionGuard LLM is ready'}
           </div>
         </div>
 
-        {/* Messages */}
         {messages.map((message) => (
           <ChatMessage key={message.id} message={message} />
         ))}
-        
+
         <div ref={chatEndRef} />
       </div>
 
-      {/* Quick suggestions */}
       <div className="flex-shrink-0 py-3 border-t border-white/10">
         <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
           <SuggestionChip>Show recent alerts</SuggestionChip>
           <SuggestionChip>Activity in parking lot</SuggestionChip>
-          <SuggestionChip>Summarize today's events</SuggestionChip>
+          <SuggestionChip>Summarize today&apos;s events</SuggestionChip>
           <SuggestionChip>Any unauthorized access?</SuggestionChip>
         </div>
       </div>
 
-      {/* Input area */}
       <div className="flex-shrink-0 pt-2">
         <div className="flex gap-3 items-end">
           <div className="flex-1 relative">
@@ -87,28 +207,33 @@ export default function LLMQuery() {
               onKeyDown={handleKeyDown}
               placeholder="Ask VisionGuard about events..."
               rows={1}
+              disabled={sending}
               className="w-full px-4 py-3 pr-12 rounded-xl bg-vg-card border border-white/10 
                 text-white placeholder-vg-text-muted resize-none
                 focus:outline-none focus:border-vg-accent/50 focus:ring-1 focus:ring-vg-accent/30
-                transition-all"
+                transition-all disabled:opacity-50"
               style={{ minHeight: '48px', maxHeight: '120px' }}
             />
           </div>
-          <button 
+          <button
+            type="button"
             onClick={handleSend}
-            className="flex-shrink-0 w-12 h-12 rounded-xl bg-vg-accent flex items-center justify-center
+            className="flex-shrink-0 min-w-[3rem] h-12 px-3 rounded-xl bg-vg-accent flex items-center justify-center
               glow-blue-sm hover:glow-blue transition-all duration-300
               disabled:opacity-50 disabled:cursor-not-allowed"
-            disabled={!inputValue.trim()}
+            disabled={!inputValue.trim() || sending}
           >
-            <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
-                d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
-            </svg>
+            {sending ? (
+              <span className="text-xs text-white">…</span>
+            ) : (
+              <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+              </svg>
+            )}
           </button>
         </div>
         <p className="text-center text-xs text-vg-text-muted mt-3">
-          VisionGuard LLM can search events, generate reports, and provide insights
+          Uses POST /runs/&lt;run_id&gt;/llm when the API is available
         </p>
       </div>
     </div>
@@ -122,34 +247,29 @@ function ChatMessage({ message }) {
   return (
     <div className={`flex ${isUser ? 'justify-end' : 'justify-start'} animate-fade-in`}>
       <div className={`max-w-[85%] md:max-w-[75%] ${isUser ? 'order-2' : 'order-1'}`}>
-        {/* Avatar and name */}
         <div className={`flex items-center gap-2 mb-1 ${isUser ? 'justify-end' : 'justify-start'}`}>
           {!isUser && (
             <div className="w-6 h-6 rounded-full bg-vg-accent/20 flex items-center justify-center">
               <span className="text-vg-accent text-xs font-bold">VG</span>
             </div>
           )}
-          <span className="text-xs text-vg-text-muted">
-            {isUser ? 'You' : 'VisionGuard LLM'}
-          </span>
+          <span className="text-xs text-vg-text-muted">{isUser ? 'You' : 'VisionGuard LLM'}</span>
           <span className="text-xs text-vg-text-muted/60">
             {timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
           </span>
         </div>
 
-        {/* Message bubble */}
-        <div 
+        <div
           className={`
             px-4 py-3 rounded-2xl
-            ${isUser 
-              ? 'bg-vg-accent text-white rounded-tr-sm' 
-              : 'bg-vg-card border border-white/10 text-white rounded-tl-sm'
+            ${
+              isUser
+                ? 'bg-vg-accent text-white rounded-tr-sm'
+                : 'bg-vg-card border border-white/10 text-white rounded-tl-sm'
             }
           `}
         >
-          <div className="text-sm whitespace-pre-wrap leading-relaxed">
-            {message.content}
-          </div>
+          <div className="text-sm whitespace-pre-wrap leading-relaxed">{message.content}</div>
         </div>
       </div>
     </div>
@@ -158,9 +278,12 @@ function ChatMessage({ message }) {
 
 function SuggestionChip({ children }) {
   return (
-    <button className="flex-shrink-0 px-4 py-2 rounded-full bg-vg-card border border-white/10 
+    <button
+      type="button"
+      className="flex-shrink-0 px-4 py-2 rounded-full bg-vg-card border border-white/10 
       text-sm text-vg-text-muted hover:text-white hover:border-vg-accent/30 
-      transition-all whitespace-nowrap">
+      transition-all whitespace-nowrap"
+    >
       {children}
     </button>
   );

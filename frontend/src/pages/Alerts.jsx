@@ -1,3 +1,5 @@
+import { useEffect, useState } from 'react';
+import { apiFetchJson, getApiBaseUrl } from '../lib/api';
 import { mockAlerts } from '../data/mockAlerts';
 
 const severityConfig = {
@@ -24,9 +26,79 @@ const severityConfig = {
   },
 };
 
+/** Map backend ActionAlert.severity to UI card type (backend uses high/medium/low etc.) */
+function normalizeSeverity(severity) {
+  const s = (severity || '').toLowerCase();
+  if (s === 'critical' || s === 'high') return 'critical';
+  if (s === 'warning' || s === 'medium') return 'warning';
+  return 'info';
+}
+
+/** Map GET /runs/{run_id}/alerts item + parent run metadata into AlertCard props */
+function mapActionAlert(apiAlert, run) {
+  const startedMs = run?.started_at ? new Date(run.started_at).getTime() : Date.now();
+  const ms = startedMs + (apiAlert.timestamp_s ?? 0) * 1000;
+  const score = apiAlert.action_score ?? 0;
+  const confidence = score <= 1 ? Math.round(score * 100) : Math.min(100, Math.round(score));
+
+  return {
+    id: `api-${apiAlert.id}`,
+    type: normalizeSeverity(apiAlert.severity),
+    title: apiAlert.rule_name || 'Alert',
+    description: apiAlert.message,
+    camera: run?.run_name?.trim() || `Run ${String(apiAlert.run_id).slice(0, 8)}…`,
+    timestamp: new Date(ms).toISOString(),
+    confidence,
+  };
+}
+
 export default function Alerts() {
-  const criticalCount = mockAlerts.filter(a => a.type === 'critical').length;
-  const warningCount = mockAlerts.filter(a => a.type === 'warning').length;
+  const [alerts, setAlerts] = useState([]);
+  const [loading, setLoading] = useState(true);
+  /** 'api' | 'mock' — mock only when fetch fails (no global GET /alerts exists yet; we use /runs + /runs/{id}/alerts) */
+  const [source, setSource] = useState('api');
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function load() {
+      setLoading(true);
+      try {
+        const runs = await apiFetchJson('/runs?limit=1');
+        if (cancelled) return;
+
+        if (!runs.length) {
+          setAlerts([]);
+          setSource('api');
+          return;
+        }
+
+        const run = runs[0];
+        const raw = await apiFetchJson(`/runs/${run.id}/alerts?limit=500`);
+        if (cancelled) return;
+
+        const mapped = raw.map((a) => mapActionAlert(a, run));
+        mapped.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+        setAlerts(mapped);
+        setSource('api');
+      } catch {
+        if (!cancelled) {
+          setAlerts(mockAlerts);
+          setSource('mock');
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    }
+
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const criticalCount = alerts.filter((a) => a.type === 'critical').length;
+  const warningCount = alerts.filter((a) => a.type === 'warning').length;
 
   return (
     <div className="space-y-6">
@@ -46,6 +118,18 @@ export default function Alerts() {
         </div>
       </div>
 
+      {source === 'mock' && (
+        <div className="rounded-lg border border-vg-warning/40 bg-vg-warning/10 px-4 py-3 text-sm text-vg-text-muted">
+          Could not reach the API at {getApiBaseUrl()}. Showing offline demo alerts until the backend is running.
+        </div>
+      )}
+
+      {source === 'api' && !loading && alerts.length === 0 && (
+        <div className="card p-8 text-center text-vg-text-muted">
+          No alerts yet for the latest video run. Process a video and persist alerts to the database to see them here.
+        </div>
+      )}
+
       {/* Filter tabs */}
       <div className="flex gap-2 border-b border-white/10 pb-4">
         <FilterButton active>All Alerts</FilterButton>
@@ -56,20 +140,25 @@ export default function Alerts() {
 
       {/* Alerts list */}
       <div className="space-y-3">
-        {mockAlerts.map((alert, index) => (
-          <AlertCard 
-            key={alert.id} 
-            alert={alert} 
-            style={{ animationDelay: `${index * 50}ms` }}
-          />
-        ))}
+        {loading && (
+          <div className="text-vg-text-muted text-sm animate-pulse">Loading alerts…</div>
+        )}
+        {!loading &&
+          alerts.map((alert, index) => (
+            <AlertCard
+              key={alert.id}
+              alert={alert}
+              style={{ animationDelay: `${index * 50}ms` }}
+            />
+          ))}
       </div>
 
       {/* Load more */}
       <div className="text-center pt-4">
-        <button className="btn-ghost text-sm px-6 py-2">
+        <button type="button" className="btn-ghost text-sm px-6 py-2" disabled>
           Load More Alerts
         </button>
+        {/* TODO: backend — add pagination or GET /alerts across runs when implemented */}
       </div>
     </div>
   );
@@ -78,11 +167,13 @@ export default function Alerts() {
 function FilterButton({ children, active = false }) {
   return (
     <button
+      type="button"
       className={`
         px-4 py-2 rounded-lg text-sm font-medium transition-all
-        ${active 
-          ? 'bg-vg-accent/20 text-vg-accent border border-vg-accent/30' 
-          : 'text-vg-text-muted hover:bg-white/5 hover:text-white'
+        ${
+          active
+            ? 'bg-vg-accent/20 text-vg-accent border border-vg-accent/30'
+            : 'text-vg-text-muted hover:bg-white/5 hover:text-white'
         }
       `}
     >
@@ -94,9 +185,9 @@ function FilterButton({ children, active = false }) {
 function AlertCard({ alert, style }) {
   const config = severityConfig[alert.type];
   const timestamp = new Date(alert.timestamp);
-  
+
   return (
-    <div 
+    <div
       className={`
         card p-4 cursor-pointer animate-fade-in
         ${config.bg} ${config.border} border
@@ -105,12 +196,9 @@ function AlertCard({ alert, style }) {
       style={style}
     >
       <div className="flex flex-col sm:flex-row sm:items-start gap-4">
-        {/* Icon and content */}
         <div className="flex gap-4 flex-1">
-          {/* Severity icon */}
           <div className="text-2xl flex-shrink-0">{config.icon}</div>
-          
-          {/* Content */}
+
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-3 mb-1">
               <h3 className="text-white font-semibold truncate">{alert.title}</h3>
@@ -122,15 +210,23 @@ function AlertCard({ alert, style }) {
             <div className="flex items-center gap-4 text-xs text-vg-text-muted">
               <span className="flex items-center gap-1">
                 <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
-                    d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"
+                  />
                 </svg>
                 {alert.camera}
               </span>
               <span className="flex items-center gap-1">
                 <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
-                    d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+                  />
                 </svg>
                 {alert.confidence}% confidence
               </span>
@@ -138,7 +234,6 @@ function AlertCard({ alert, style }) {
           </div>
         </div>
 
-        {/* Timestamp */}
         <div className="text-right flex-shrink-0">
           <p className="text-white text-sm font-medium">
             {timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}

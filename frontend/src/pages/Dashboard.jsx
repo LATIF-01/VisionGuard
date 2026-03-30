@@ -1,20 +1,25 @@
 /**
  * Dashboard Page - Live Camera Feed View
- * 
+ *
  * VIDEO FILE PLACEMENT INSTRUCTIONS:
  * ----------------------------------
  * Place your video files in the following location:
- *   /home/osama_shayabi/VisionGuard/frontend/public/videos/
- * 
+ *   frontend/public/videos/
+ *
  * Required files:
  *   - cam1.mp4 (Main Entrance feed)
  *   - cam2.mp4 (Parking Lot feed)
  *   - cam3.mp4 (Hallway A feed)
  *   - cam4.mp4 (Server Room feed)
- * 
+ *
+ * MP4 is only a container — use H.264 (AVC) + AAC inside for reliable browser playback.
+ * Re-encode with: bash scripts/encode_dashboard_videos.sh (needs ffmpeg)
+ *
  * After placing the files, they will be accessible at:
  *   /videos/cam1.mp4, /videos/cam2.mp4, etc.
  */
+
+import { useState } from 'react';
 
 const cameraFeeds = [
   { id: 1, name: 'CAM 01', location: 'Main Entrance', src: '/videos/cam1.mp4', status: 'live' },
@@ -59,24 +64,29 @@ export default function Dashboard() {
 }
 
 function CameraPanel({ camera }) {
+  const [videoError, setVideoError] = useState(false);
+
   return (
     <div className="card overflow-hidden group">
       {/* Video container */}
       <div className="relative aspect-video bg-black">
-        {/* 
-          Video element - autoPlay, loop, and muted for seamless playback
-          playsInline prevents fullscreen on mobile devices
-        */}
         <video
-          src={camera.src}
           autoPlay
           loop
           muted
           playsInline
-          className="w-full h-full object-cover"
+          preload="metadata"
+          className={`w-full h-full object-cover ${videoError ? 'invisible' : ''}`}
+          onError={() => setVideoError(true)}
         >
+          <source src={camera.src} type="video/mp4" />
           Your browser does not support the video tag.
         </video>
+        {videoError && (
+          <div className="absolute inset-0 z-10 flex items-center justify-center bg-black">
+            <span className="text-white/50 text-sm tracking-wide">no signal</span>
+          </div>
+        )}
 
         {/* Camera info overlay - top */}
         <div className="absolute top-0 left-0 right-0 p-3 bg-gradient-to-b from-black/70 to-transparent">
