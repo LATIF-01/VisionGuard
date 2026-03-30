@@ -1,0 +1,173 @@
+@import "tailwindcss";
+
+/* VisionGuard Dark Theme - Futuristic Security Dashboard */
+@theme {
+  /* Color palette */
+  --color-vg-dark: #0a0e1a;
+  --color-vg-card: #111827;
+  --color-vg-sidebar: #1e293b;
+  --color-vg-accent: #3b82f6;
+  --color-vg-accent-light: #60a5fa;
+  --color-vg-text: #ffffff;
+  --color-vg-text-muted: #94a3b8;
+  --color-vg-border: #1e293b;
+  --color-vg-glass: rgba(255, 255, 255, 0.05);
+  
+  /* Severity colors */
+  --color-vg-critical: #ef4444;
+  --color-vg-warning: #f59e0b;
+  --color-vg-info: #3b82f6;
+  --color-vg-success: #22c55e;
+
+  /* Font family */
+  --font-sans: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+}
+
+/* Base styles */
+* {
+  box-sizing: border-box;
+}
+
+html {
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  background-color: var(--color-vg-dark);
+  color: var(--color-vg-text);
+  min-height: 100vh;
+}
+
+#root {
+  min-height: 100vh;
+}
+
+/* Custom utility classes */
+@utility glass {
+  background: var(--color-vg-glass);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+@utility glow-blue {
+  box-shadow: 0 0 20px rgba(59, 130, 246, 0.5), 0 0 40px rgba(59, 130, 246, 0.3);
+}
+
+@utility glow-blue-sm {
+  box-shadow: 0 0 10px rgba(59, 130, 246, 0.4), 0 0 20px rgba(59, 130, 246, 0.2);
+}
+
+@utility glow-blue-hover {
+  &:hover {
+    box-shadow: 0 0 25px rgba(59, 130, 246, 0.6), 0 0 50px rgba(59, 130, 246, 0.4);
+  }
+}
+
+@utility text-glow {
+  text-shadow: 0 0 10px rgba(59, 130, 246, 0.5);
+}
+
+/* Button styles */
+.btn-primary {
+  background-color: var(--color-vg-accent);
+  color: white;
+  padding: 0.75rem 1.5rem;
+  border-radius: 0.5rem;
+  font-weight: 500;
+  transition: all 0.3s ease;
+  border: none;
+  cursor: pointer;
+  box-shadow: 0 0 15px rgba(59, 130, 246, 0.5);
+}
+
+.btn-primary:hover:not(:disabled) {
+  background-color: var(--color-vg-accent-light);
+  box-shadow: 0 0 25px rgba(59, 130, 246, 0.7);
+  transform: translateY(-1px);
+}
+
+.btn-primary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.btn-ghost {
+  background: transparent;
+  color: var(--color-vg-accent);
+  padding: 0.75rem 1.5rem;
+  border-radius: 0.5rem;
+  font-weight: 500;
+  transition: all 0.3s ease;
+  border: 1px solid var(--color-vg-accent);
+  cursor: pointer;
+}
+
+.btn-ghost:hover {
+  background: rgba(59, 130, 246, 0.1);
+  box-shadow: 0 0 15px rgba(59, 130, 246, 0.3);
+}
+
+/* Card styles */
+.card {
+  background-color: var(--color-vg-card);
+  border-radius: 0.75rem;
+  border: 1px solid var(--color-vg-border);
+  transition: all 0.3s ease;
+}
+
+.card:hover {
+  border-color: rgba(59, 130, 246, 0.3);
+}
+
+/* Scrollbar styling */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--color-vg-dark);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--color-vg-sidebar);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-vg-accent);
+}
+
+/* Animation keyframes */
+@keyframes pulse-glow {
+  0%, 100% {
+    box-shadow: 0 0 15px rgba(59, 130, 246, 0.5);
+  }
+  50% {
+    box-shadow: 0 0 25px rgba(59, 130, 246, 0.8);
+  }
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-pulse-glow {
+  animation: pulse-glow 2s ease-in-out infinite;
+}
+
+.animate-fade-in {
+  animation: fade-in 0.3s ease-out forwards;
+}
