@@ -6,7 +6,7 @@ import os
 from cerebras.cloud.sdk import Cerebras
 
 
-CEREBRAS_MODEL = os.getenv("CEREBRAS_MODEL", "qwen-3-235b-a22b-instruct-2507")
+CEREBRAS_MODEL = os.getenv("CEREBRAS_MODEL", "llama3.1-8b")
 
 
 def ask_llm(context: dict, question: str) -> str:
