@@ -1,11 +1,45 @@
 import argparse
+from pathlib import Path
 
-from src.models.action.x3d_recognizer import X3DRecognizer
-from src.pipeline.video_action_pipeline import run
+import yaml
+
+
+def _load_yaml_config(config_path: str) -> dict:
+	path = Path(config_path)
+	if not path.is_file():
+		fallback = Path("config") / config_path
+		if fallback.is_file():
+			path = fallback
+		else:
+			raise FileNotFoundError(
+				f"Config file not found: {config_path}. Also checked: {fallback}"
+			)
+
+	try:
+		data = yaml.safe_load(path.read_text(encoding="utf-8"))
+	except yaml.YAMLError as exc:
+		raise ValueError(f"Invalid YAML in config file {config_path}: {exc}") from exc
+
+	if data is None:
+		return {}
+	if not isinstance(data, dict):
+		raise ValueError(f"Config file must contain a YAML mapping at top level: {config_path}")
+	return data
 
 def parse_args() -> argparse.Namespace:
-	parser = argparse.ArgumentParser(description="YOLO tracking + X3D action recognition")
-	parser.add_argument("--input", required=True, help="Input video path")
+	config_parser = argparse.ArgumentParser(add_help=False)
+	config_parser.add_argument(
+		"--config",
+		default="",
+		help="Optional path to YAML config file. CLI flags override config values.",
+	)
+	config_args, remaining_argv = config_parser.parse_known_args()
+
+	parser = argparse.ArgumentParser(
+		description="YOLO tracking + X3D action recognition",
+		parents=[config_parser],
+	)
+	parser.add_argument("--input", default="", help="Input video path")
 	parser.add_argument("--output", default="output_actions.mp4", help="Output video path")
 	parser.add_argument("--yolo-weights", default="yolov8n.pt", help="YOLO model weights")
 	parser.add_argument("--enable-segmentation", action="store_true", help="Enable person segmentation masking for embeddings")
@@ -38,6 +72,12 @@ def parse_args() -> argparse.Namespace:
 	parser.add_argument("--infer-stride", type=int, default=4, help="Run action every N frames")
 	parser.add_argument("--smooth-window", type=int, default=8, help="Prediction smoothing window")
 	parser.add_argument("--expand-scale", type=float, default=1.2, help="BBox expansion scale")
+	parser.add_argument(
+		"--action-expand-scale",
+		type=float,
+		default=1.45,
+		help="BBox expansion scale specifically for X3D action crops (should be >= --expand-scale)",
+	)
 	parser.add_argument("--min-box-size", type=int, default=12, help="Skip tiny tracks")
 	parser.add_argument("--reid-reassociate-threshold", type=float, default=0.75, help="Similarity threshold to map new raw IDs to old stable IDs")
 	parser.add_argument("--reid-max-gap-frames", type=int, default=300, help="Max frame gap for stable ID reassociation")
@@ -110,8 +150,29 @@ def parse_args() -> argparse.Namespace:
 		default=60,
 		help="Fallback cooldown for generated default alert rule",
 	)
-	return parser.parse_args()
+	if config_args.config:
+		config_data = _load_yaml_config(config_args.config)
+		valid_keys = {action.dest for action in parser._actions if action.dest}
+		unknown_keys = [key for key in config_data.keys() if key not in valid_keys]
+		if unknown_keys:
+			raise ValueError(
+				"Unknown config key(s): "
+				+ ", ".join(sorted(unknown_keys))
+				+ f". Update {config_args.config} to match available CLI args."
+			)
+
+		parser.set_defaults(**config_data)
+
+	args = parser.parse_args(remaining_argv)
+	if not str(args.input).strip():
+		parser.error("the following arguments are required: --input")
+	if int(args.infer_stride) < 1:
+		parser.error("--infer-stride must be >= 1")
+	return args
 
 
 if __name__ == "__main__":
-	run(parse_args())
+	args = parse_args()
+	from src.pipeline.video_action_pipeline import run
+
+	run(args)

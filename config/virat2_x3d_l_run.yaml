@@ -1,0 +1,14 @@
+input: data/VIRAT2.mp4
+output: data/VIROUTLOGs3.mp4
+yolo_weights: weights/yolov8n.pt
+action_model: x3d_l
+enable_segmentation: true
+seg_weights: weights/yolov8n-seg.pt
+tracker: config/botsort_best_quality.yaml
+device: cuda:0
+infer_stride: 8
+event_log_path: logs/virat_events.jsonl
+event_log_frames: true
+save_events_db: true
+db_run_name: virat2_db_run
+action_expand_scale: 1.4
