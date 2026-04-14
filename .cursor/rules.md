@@ -1,6 +1,0 @@
-- Build system in modular components
-- Each module must be independently testable
-- Prioritize working MVP over full accuracy
-- Always return structured outputs (not raw model output)
-- Keep clear separation between AI pipeline and API layer
-- You may choose the best implementation approach as long as the pipeline works end-to-end
