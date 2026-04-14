@@ -1,6 +1,8 @@
 from collections import Counter, defaultdict, deque
 from dataclasses import dataclass
-from typing import Deque, Dict, Tuple
+from queue import Queue
+from threading import Thread
+from typing import Any, Deque, Dict, Optional, Tuple
 
 import cv2
 import numpy as np
@@ -25,6 +27,152 @@ from src.models.tracking.embedding_manager import EmbeddingManager
 class ActionState:
 	label: str
 	score: float
+
+
+class AsyncVideoEventLogger:
+	"""Background writer for JSONL events to reduce main-loop I/O stalls."""
+
+	def __init__(self, logger: VideoEventLogger):
+		self._logger = logger
+		self._queue: Queue = Queue()
+		self._stop_sentinel = object()
+		self._worker_error: Optional[BaseException] = None
+		self._closed = False
+		self._thread = Thread(target=self._run, name="event-log-writer", daemon=True)
+		self._thread.start()
+
+	def _run(self) -> None:
+		try:
+			while True:
+				item = self._queue.get()
+				if item is self._stop_sentinel:
+					break
+
+				kind, payload = item
+				if kind == "track":
+					self._logger.log_track(payload)
+				elif kind == "alert":
+					self._logger.log_alert(payload)
+				elif kind == "frame":
+					self._logger.log_frame(
+						frame_idx=int(payload["frame_idx"]),
+						timestamp_s=float(payload["timestamp_s"]),
+						active_track_count=int(payload["active_track_count"]),
+						tracked_person_count=int(payload["tracked_person_count"]),
+					)
+		except BaseException as exc:
+			self._worker_error = exc
+
+	def _enqueue(self, kind: str, payload: Dict[str, Any]) -> None:
+		if self._worker_error is not None:
+			raise RuntimeError(f"Async event logger worker failed: {self._worker_error}")
+		if self._closed:
+			return
+		self._queue.put((kind, payload))
+
+	def log_track(self, payload: Dict[str, Any]) -> None:
+		self._enqueue("track", payload)
+
+	def log_alert(self, payload: Dict[str, Any]) -> None:
+		self._enqueue("alert", payload)
+
+	def log_frame(self, *, frame_idx: int, timestamp_s: float, active_track_count: int, tracked_person_count: int) -> None:
+		self._enqueue(
+			"frame",
+			{
+				"frame_idx": int(frame_idx),
+				"timestamp_s": float(timestamp_s),
+				"active_track_count": int(active_track_count),
+				"tracked_person_count": int(tracked_person_count),
+			},
+		)
+
+	def close(self) -> None:
+		if self._closed:
+			return
+		self._closed = True
+		self._queue.put(self._stop_sentinel)
+		self._thread.join()
+		self._logger.close()
+		if self._worker_error is not None:
+			raise RuntimeError(f"Async event logger worker failed: {self._worker_error}")
+
+
+class AsyncDBEventSink:
+	"""Background DB writer for track and alert events."""
+
+	def __init__(
+		self,
+		*,
+		input_path: str,
+		output_path: str,
+		fps: float,
+		frame_width: int,
+		frame_height: int,
+		run_name: str = "",
+	):
+		self._sink_kwargs = {
+			"input_path": input_path,
+			"output_path": output_path,
+			"fps": float(fps),
+			"frame_width": int(frame_width),
+			"frame_height": int(frame_height),
+			"run_name": run_name,
+		}
+		self._sink: Optional[DBEventSink] = None
+		self._run_id = ""
+		self._queue: Queue = Queue()
+		self._stop_sentinel = object()
+		self._worker_error: Optional[BaseException] = None
+		self._closed = False
+		self._thread = Thread(target=self._run, name="db-event-writer", daemon=True)
+		self._thread.start()
+
+	@property
+	def run_id(self) -> str:
+		return self._run_id
+
+	def _run(self) -> None:
+		try:
+			self._sink = DBEventSink(**self._sink_kwargs)
+			self._run_id = self._sink.run_id
+			while True:
+				item = self._queue.get()
+				if item is self._stop_sentinel:
+					break
+
+				kind, payload = item
+				if kind == "track":
+					self._sink.add_track_event(payload)
+				elif kind == "alert":
+					self._sink.add_alert(payload)
+				elif kind == "finalize":
+					self._sink.finalize(total_frames=int(payload.get("total_frames", 0)))
+		except BaseException as exc:
+			self._worker_error = exc
+
+	def _enqueue(self, kind: str, payload: Dict[str, Any]) -> None:
+		if self._worker_error is not None:
+			raise RuntimeError(f"Async DB sink worker failed: {self._worker_error}")
+		if self._closed:
+			return
+		self._queue.put((kind, payload))
+
+	def add_track_event(self, payload: Dict[str, Any]) -> None:
+		self._enqueue("track", payload)
+
+	def add_alert(self, payload: Dict[str, Any]) -> None:
+		self._enqueue("alert", payload)
+
+	def finalize(self, total_frames: int) -> None:
+		if self._closed:
+			return
+		self._closed = True
+		self._queue.put(("finalize", {"total_frames": int(total_frames)}))
+		self._queue.put(self._stop_sentinel)
+		self._thread.join()
+		if self._worker_error is not None:
+			raise RuntimeError(f"Async DB sink worker failed: {self._worker_error}")
 
 
 def run(args) -> None:
@@ -56,7 +204,8 @@ def run(args) -> None:
 	next_stable_id = 1
 	frame_idx = 0
 	event_logger = VideoEventLogger(args.event_log_path, args.event_log_flush_every) if args.event_log_path else None
-	db_sink = None
+	async_event_logger = AsyncVideoEventLogger(event_logger) if event_logger is not None else None
+	async_db_sink = None
 	alert_engine = None
 
 	if args.enable_alerts:
@@ -138,7 +287,7 @@ def run(args) -> None:
 	frame_h = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
 
 	if args.save_events_db:
-		db_sink = DBEventSink(
+		async_db_sink = AsyncDBEventSink(
 			input_path=args.input,
 			output_path=args.output,
 			fps=float(fps),
@@ -175,6 +324,7 @@ def run(args) -> None:
 			class_ids = boxes.cls.int().cpu().numpy()
 			track_ids = boxes.id.int().cpu().numpy()
 			confs = boxes.conf.cpu().numpy()
+			action_expand_scale = max(float(args.action_expand_scale), float(args.expand_scale))
 
 			present_raw_ids = {int(tid) for tid in track_ids}
 			reserved_stable_ids = {
@@ -183,6 +333,7 @@ def run(args) -> None:
 				if rid in raw_to_stable
 			}
 			stable_owner_this_frame: Dict[int, int] = {}
+			action_sample_frame = (frame_idx % args.infer_stride) == 0
 
 			for box, cls_id, track_id, conf in zip(xyxy, class_ids, track_ids, confs):
 				raw_track_id = int(track_id)
@@ -192,8 +343,12 @@ def run(args) -> None:
 
 				frame_person_count += 1
 
-				x1, y1, x2, y2 = map(int, box)
-				x1, y1, x2, y2 = expand_box(x1, y1, x2, y2, frame_w, frame_h, args.expand_scale)
+				raw_x1, raw_y1, raw_x2, raw_y2 = map(lambda v: int(round(float(v))), box)
+				if raw_x1 > raw_x2:
+					raw_x1, raw_x2 = raw_x2, raw_x1
+				if raw_y1 > raw_y2:
+					raw_y1, raw_y2 = raw_y2, raw_y1
+				x1, y1, x2, y2 = expand_box(raw_x1, raw_y1, raw_x2, raw_y2, frame_w, frame_h, args.expand_scale)
 
 				if (x2 - x1) < args.min_box_size or (y2 - y1) < args.min_box_size:
 					continue
@@ -201,16 +356,40 @@ def run(args) -> None:
 				if x1 >= x2 or y1 >= y2 or x1 < 0 or y1 < 0 or x2 > frame_w or y2 > frame_h:
 					continue
 
-				crop = frame[y1:y2, x1:x2]
-				if crop.size == 0 or crop.shape[0] < 10 or crop.shape[1] < 10:
+				emb_crop = frame[y1:y2, x1:x2]
+				if emb_crop.size == 0 or emb_crop.shape[0] < 10 or emb_crop.shape[1] < 10:
 					continue
 
-				emb_crop = crop
+				action_crop: Optional[np.ndarray] = None
+				if action_sample_frame:
+					action_x1, action_y1, action_x2, action_y2 = expand_box(
+						raw_x1,
+						raw_y1,
+						raw_x2,
+						raw_y2,
+						frame_w,
+						frame_h,
+						action_expand_scale,
+					)
+
+					if (action_x2 - action_x1) >= args.min_box_size and (action_y2 - action_y1) >= args.min_box_size:
+						if (
+							action_x1 < action_x2
+							and action_y1 < action_y2
+							and action_x1 >= 0
+							and action_y1 >= 0
+							and action_x2 <= frame_w
+							and action_y2 <= frame_h
+						):
+							action_crop = frame[action_y1:action_y2, action_x1:action_x2]
+							if action_crop.size == 0 or action_crop.shape[0] < 10 or action_crop.shape[1] < 10:
+								action_crop = None
+
 				mask_bin = None
 				mask_ratio = 0.0
 				if segmenter is not None:
 					emb_crop, mask_bin, mask_ratio = apply_person_segmentation_mask(
-						crop_bgr=crop,
+						crop_bgr=emb_crop,
 						segmenter=segmenter,
 						person_class_id=args.person_class_id,
 						seg_conf=args.seg_conf,
@@ -326,15 +505,20 @@ def run(args) -> None:
 						region_embeddings=region_embeddings,
 					)
 
-				crop = cv2.resize(
-					crop,
-					(args.track_crop_size, args.track_crop_size),
-					interpolation=cv2.INTER_LINEAR if crop.shape[0] >= args.track_crop_size else cv2.INTER_CUBIC,
-				)
+				if action_crop is not None:
+					action_crop = cv2.resize(
+						action_crop,
+						(args.track_crop_size, args.track_crop_size),
+						interpolation=(
+							cv2.INTER_LINEAR
+							if action_crop.shape[0] >= args.track_crop_size
+							else cv2.INTER_CUBIC
+						),
+					)
 
-				clip_buffers[stable_id].append(crop)
+					clip_buffers[stable_id].append(action_crop)
 
-				if len(clip_buffers[stable_id]) == args.clip_len and frame_idx % args.infer_stride == 0:
+				if action_sample_frame and len(clip_buffers[stable_id]) == args.clip_len:
 					pred_idx, pred_score = recognizer.infer(list(clip_buffers[stable_id]))
 					pred_label = label_map.get(pred_idx, str(pred_idx))
 					pred_hist[stable_id].append(pred_label)
@@ -371,10 +555,10 @@ def run(args) -> None:
 					"reid_second_best_sim": None if reid_second_best_sim is None else round(float(reid_second_best_sim), 4),
 				}
 
-				if event_logger is not None:
-					event_logger.log_track(event_payload)
-				if db_sink is not None:
-					db_sink.add_track_event(event_payload)
+				if async_event_logger is not None:
+					async_event_logger.log_track(event_payload)
+				if async_db_sink is not None:
+					async_db_sink.add_track_event(event_payload)
 
 				if alert_engine is not None and alert_engine.has_rules:
 					generated_alerts = alert_engine.process_track_event(event_payload)
@@ -390,10 +574,10 @@ def run(args) -> None:
 							"message": alert.message,
 							"metadata": alert.metadata,
 						}
-						if event_logger is not None:
-							event_logger.log_alert(alert_payload)
-						if db_sink is not None:
-							db_sink.add_alert(alert_payload)
+						if async_event_logger is not None:
+							async_event_logger.log_alert(alert_payload)
+						if async_db_sink is not None:
+							async_db_sink.add_alert(alert_payload)
 
 				cv2.rectangle(frame, (x1, y1), (x2, y2), (30, 220, 30), 2)
 				cv2.putText(
@@ -407,8 +591,8 @@ def run(args) -> None:
 				)
 
 		writer.write(frame)
-		if event_logger is not None and args.event_log_frames:
-			event_logger.log_frame(
+		if async_event_logger is not None and args.event_log_frames:
+			async_event_logger.log_frame(
 				frame_idx=frame_idx,
 				timestamp_s=frame_idx / max(fps, 1e-6),
 				active_track_count=len(active_stable_ids_this_frame),
@@ -418,10 +602,10 @@ def run(args) -> None:
 
 	cap.release()
 	writer.release()
-	if db_sink is not None:
-		db_sink.finalize(total_frames=frame_idx)
-		print(f"Saved deduplicated events to DB run_id: {db_sink.run_id}")
-	if event_logger is not None:
-		event_logger.close()
+	if async_db_sink is not None:
+		async_db_sink.finalize(total_frames=frame_idx)
+		print(f"Saved deduplicated events to DB run_id: {async_db_sink.run_id}")
+	if async_event_logger is not None:
+		async_event_logger.close()
 		print(f"Saved event log to: {args.event_log_path}")
 	print(f"Saved output to: {args.output}")
