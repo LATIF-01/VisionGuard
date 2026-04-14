@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Re-encode dashboard demo MP4s (cam1–cam3) to H.264 + AAC for browser <video> playback.
+# Re-encode dashboard demo MP4s (cam1–cam4) to H.264 + AAC for browser <video> playback.
 # Requires: ffmpeg (e.g. sudo apt install ffmpeg on Ubuntu/WSL)
 set -euo pipefail
 
@@ -24,7 +24,7 @@ encode_one() {
     -c:v libx264 -preset medium -crf 23 -movflags +faststart -an "$out"
 }
 
-for n in 1 2 3; do
+for n in 1 2 3 4; do
   in="$VID/cam${n}.mp4"
   tmp="$VID/cam${n}.tmp.h264.mp4"
   bak="$VID/cam${n}.mp4.bak"
@@ -39,4 +39,4 @@ for n in 1 2 3; do
   echo "OK: $in (backup: $bak)"
 done
 
-echo "Done. Reload the dashboard; cam1–cam3 should play like cam4."
+echo "Done. Reload the dashboard; all cam feeds should play in the browser."
