@@ -2,7 +2,7 @@
 from datetime import datetime
 from typing import List, Optional
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 class MinimalEventSegmentOut(BaseModel):
     stable_id: int
@@ -10,6 +10,17 @@ class MinimalEventSegmentOut(BaseModel):
     action_label: str
     start_timestamp_s: float
     end_timestamp_s: float
+
+
+class MinimalActionAlertOut(BaseModel):
+    stable_id: int
+    rule_name: str
+    severity: str
+    action_label: str
+    action_score: float
+    frame_idx: int
+    timestamp_s: float
+    message: str
 
 class VideoRunOut(BaseModel):
     id: str
@@ -83,3 +94,4 @@ class LLMContextResponse(BaseModel):
     run_id: str
     summary: str
     segments: List[MinimalEventSegmentOut]
+    alerts: List[MinimalActionAlertOut] = Field(default_factory=list)

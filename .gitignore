@@ -219,3 +219,7 @@ __marimo__/
 node_modules/
 **/node_modules/
 frontend/node_modules/
+
+# Logs
+logs/*.json
+logs/*.jsonl

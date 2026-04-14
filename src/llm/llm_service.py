@@ -1,24 +1,43 @@
+from __future__ import annotations
+
+import json
 import os
-import requests
+
+from cerebras.cloud.sdk import Cerebras
 
 
-OLLAMA_ENDPOINT = os.getenv("OLLAMA_ENDPOINT", "http://localhost:11434/v1/chat/completions")
-OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "phi3")
+CEREBRAS_MODEL = os.getenv("CEREBRAS_MODEL", "qwen-3-235b-a22b-instruct-2507")
 
 
 def ask_llm(context: dict, question: str) -> str:
     """
-    Sends the context and question to a local Ollama LLM API and returns the answer.
+    Sends the context and question to a LLM API and returns the answer.
     """
-    prompt = f"Context: {context}\n\nQuestion: {question}\n\nAnswer:"
-    data = {
-        "model": OLLAMA_MODEL,
-        "messages": [
-            {"role": "system", "content": "You are a helpful assistant for video event analysis."},
-            {"role": "user", "content": prompt}
+    prompt = json.dumps(
+        {
+            "instructions": (
+                "Answer the question using only the provided database context from VisionGuard. "
+                "Prefer concrete facts from segments, alerts, and run metadata. "
+                "If the answer is not supported by the logs, say that it is not available in the database context."
+            ),
+            "context": context,
+            "question": question,
+        },
+        indent=2,
+        ensure_ascii=True,
+        default=str,
+    )
+
+    client = Cerebras()
+    chat_completion = client.chat.completions.create(
+        model=CEREBRAS_MODEL,
+        max_tokens=512,
+        messages=[
+            {
+                "role": "system",
+                "content": "You are a helpful assistant for video event analysis. Use the database context exactly as provided.",
+            },
+            {"role": "user", "content": prompt},
         ],
-        "max_tokens": 512
-    }
-    response = requests.post(OLLAMA_ENDPOINT, json=data, timeout=60)
-    response.raise_for_status()
-    return response.json()["choices"][0]["message"]["content"].strip()
+    )
+    return chat_completion.choices[0].message.content.strip()
