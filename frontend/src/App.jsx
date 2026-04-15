@@ -7,6 +7,7 @@ import SignUp from './pages/SignUp';
 import Dashboard from './pages/Dashboard';
 import Alerts from './pages/Alerts';
 import LLMQuery from './pages/LLMQuery';
+import Settings from './pages/Settings';
 
 export default function App() {
   return (
@@ -28,6 +29,7 @@ export default function App() {
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/alerts" element={<Alerts />} />
           <Route path="/query" element={<LLMQuery />} />
+          <Route path="/settings" element={<Settings />} />
         </Route>
 
         {/* Catch-all: redirect unknown routes to home */}

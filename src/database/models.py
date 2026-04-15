@@ -11,6 +11,7 @@ from sqlalchemy import (
     String,
     Text,
     Index,
+    func,
 )
 from sqlalchemy.orm import relationship
 
@@ -85,6 +86,18 @@ Index("ix_event_segments_run_stable_start", EventSegment.run_id, EventSegment.st
 Index("ix_event_segments_run_start", EventSegment.run_id, EventSegment.start_frame)
 Index("ix_action_alerts_run_frame", ActionAlert.run_id, ActionAlert.frame_idx)
 Index("ix_action_alerts_run_stable", ActionAlert.run_id, ActionAlert.stable_id)
+
+
+class NotificationPreference(Base):
+    """Per-user email notification settings; keyed by Clerk user ID."""
+    __tablename__ = "notification_preferences"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    clerk_user_id = Column(String(255), unique=True, nullable=False, index=True)
+    email = Column(String(320), nullable=False)
+    email_alerts_enabled = Column(Boolean, nullable=False, default=True)
+    created_at = Column(DateTime, server_default=func.now())
+    updated_at = Column(DateTime, onupdate=func.now())
 
 
 # Minimal event segment table for performance use cases

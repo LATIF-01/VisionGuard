@@ -13,6 +13,7 @@ from src.alerts.models import AlertRule
 from src.alerts.rule_loader import load_alert_rules
 from src.events.db_event_sink import DBEventSink
 from src.events.video_event_logger import VideoEventLogger
+from src.notifications.alert_notifier import AlertNotifier
 from src.models.action.x3d_recognizer import (
 	X3DRecognizer,
 	apply_action_model_presets,
@@ -208,6 +209,7 @@ def run(args) -> None:
 	async_db_sink = None
 	alert_engine = None
 
+	alert_notifier = None
 	if args.enable_alerts:
 		configured_rules = load_alert_rules(args.alert_rules_path)
 		if not configured_rules:
@@ -223,6 +225,7 @@ def run(args) -> None:
 				)
 			]
 		alert_engine = ActionAlertEngine(configured_rules)
+		alert_notifier = AlertNotifier()
 
 	def probe_and_query(raw_id: int, fallback_embedding: np.ndarray) -> Tuple[Deque[np.ndarray], np.ndarray]:
 		probe = raw_probe_gallery[raw_id]
@@ -578,6 +581,9 @@ def run(args) -> None:
 							async_event_logger.log_alert(alert_payload)
 						if async_db_sink is not None:
 							async_db_sink.add_alert(alert_payload)
+						if alert_notifier is not None and alert_notifier.is_active:
+							run_id = async_db_sink.run_id if async_db_sink else ""
+							alert_notifier.notify(alert_payload, run_id=run_id)
 
 				cv2.rectangle(frame, (x1, y1), (x2, y2), (30, 220, 30), 2)
 				cv2.putText(

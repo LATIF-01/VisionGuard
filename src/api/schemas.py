@@ -95,3 +95,17 @@ class LLMContextResponse(BaseModel):
     summary: str
     segments: List[MinimalEventSegmentOut]
     alerts: List[MinimalActionAlertOut] = Field(default_factory=list)
+
+
+# --- Notification preferences ------------------------------------------------
+
+class NotificationPreferenceOut(BaseModel):
+    email_alerts_enabled: bool
+    email: str
+
+    class Config:
+        from_attributes = True
+
+
+class NotificationPreferenceUpdate(BaseModel):
+    email_alerts_enabled: bool
