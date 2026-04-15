@@ -1,6 +1,9 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import Layout from './components/Layout';
+import ProtectedRoute from './components/ProtectedRoute';
 import Landing from './pages/Landing';
+import SignIn from './pages/SignIn';
+import SignUp from './pages/SignUp';
 import Dashboard from './pages/Dashboard';
 import Alerts from './pages/Alerts';
 import LLMQuery from './pages/LLMQuery';
@@ -9,11 +12,19 @@ export default function App() {
   return (
     <BrowserRouter>
       <Routes>
-        {/* Landing page - no sidebar layout */}
+        {/* Public pages */}
         <Route path="/" element={<Landing />} />
-        
-        {/* Main app pages - with sidebar layout */}
-        <Route element={<Layout />}>
+        <Route path="/sign-in/*" element={<SignIn />} />
+        <Route path="/sign-up/*" element={<SignUp />} />
+
+        {/* Protected app pages — require Clerk auth */}
+        <Route
+          element={
+            <ProtectedRoute>
+              <Layout />
+            </ProtectedRoute>
+          }
+        >
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/alerts" element={<Alerts />} />
           <Route path="/query" element={<LLMQuery />} />

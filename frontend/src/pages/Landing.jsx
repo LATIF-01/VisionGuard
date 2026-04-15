@@ -38,12 +38,12 @@ export default function Landing() {
           >
             استعرض لوحة التحكم
           </Link>
-          <button 
-            disabled
-            className="btn-primary text-lg px-8 py-3 min-w-[220px] opacity-50 cursor-not-allowed"
+          <Link 
+            to="/sign-in" 
+            className="btn-primary text-lg px-8 py-3 min-w-[220px] text-center"
           >
             انتقل إلى تسجيل الدخول
-          </button>
+          </Link>
         </div>
 
         {/* Feature highlights */}

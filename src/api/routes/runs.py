@@ -15,6 +15,7 @@ from src.api.schemas import (
 from src.database.models import ActionAlert, EventSegment, VideoRun
 from src.llm.llm_service import ask_llm
 from src.api.deps import get_db
+from src.api.auth import get_current_user
 
 router = APIRouter(tags=["runs"])
 
@@ -116,7 +117,11 @@ def _build_run_context(db: Session, run_id: str, max_segments: int, max_alerts: 
 
 
 @router.get("/runs", response_model=List[VideoRunOut], tags=["runs"])
-def list_runs(limit: int = Query(default=20, ge=1, le=200), db: Session = Depends(get_db)):
+def list_runs(
+    limit: int = Query(default=20, ge=1, le=200),
+    db: Session = Depends(get_db),
+    _user: dict = Depends(get_current_user),
+):
     return db.query(VideoRun).order_by(VideoRun.started_at.desc()).limit(limit).all()
 
 
@@ -126,6 +131,7 @@ def list_segments(
     stable_id: Optional[int] = Query(default=None),
     limit: int = Query(default=500, ge=1, le=5000),
     db: Session = Depends(get_db),
+    _user: dict = Depends(get_current_user),
 ):
     q = db.query(EventSegment).filter(EventSegment.run_id == run_id)
     if stable_id is not None:
@@ -140,6 +146,7 @@ def list_alerts(
     severity: Optional[str] = Query(default=None),
     limit: int = Query(default=500, ge=1, le=5000),
     db: Session = Depends(get_db),
+    _user: dict = Depends(get_current_user),
 ):
     q = db.query(ActionAlert).filter(ActionAlert.run_id == run_id)
     if stable_id is not None:
@@ -155,6 +162,7 @@ def llm_context(
     max_segments: int = Query(default=300, ge=1, le=2000),
     max_alerts: int = Query(default=100, ge=1, le=1000),
     db: Session = Depends(get_db),
+    _user: dict = Depends(get_current_user),
 ):
     context = _build_run_context(db, run_id, max_segments=max_segments, max_alerts=max_alerts)
     return LLMContextResponse(
@@ -172,6 +180,7 @@ def ask_run_llm(
     max_segments: int = Query(default=300, ge=1, le=2000),
     max_alerts: int = Query(default=100, ge=1, le=1000),
     db: Session = Depends(get_db),
+    _user: dict = Depends(get_current_user),
 ):
     context = _build_run_context(db, run_id, max_segments=max_segments, max_alerts=max_alerts)
     answer = ask_llm(context, question)

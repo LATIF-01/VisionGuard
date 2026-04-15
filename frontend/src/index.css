@@ -12,7 +12,13 @@
   --color-vg-text-muted: #94a3b8;
   --color-vg-border: #1e293b;
   --color-vg-glass: rgba(255, 255, 255, 0.05);
-  
+
+  /* Auth pages — deep blue slate (aligned with Clerk theme) */
+  --color-auth-surface: #0a0f1c;
+  --color-auth-border: rgba(30, 58, 138, 0.45);
+  --color-auth-muted: #64748b;
+  --color-auth-link: #5b8def;
+
   /* Severity colors */
   --color-vg-critical: #ef4444;
   --color-vg-warning: #f59e0b;
@@ -122,6 +128,152 @@ body {
 
 .card:hover {
   border-color: rgba(59, 130, 246, 0.3);
+}
+
+/* Auth shell — sign-in / sign-up pages */
+.auth-page {
+  position: relative;
+  background-color: var(--color-vg-dark);
+  color: var(--color-vg-text);
+}
+
+/* Base layer: navy gradient + soft blue spotlight + subtle grid */
+.auth-page-bg {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  background:
+    radial-gradient(ellipse 100% 80% at 50% -30%, rgba(37, 99, 235, 0.14), transparent 55%),
+    linear-gradient(165deg, #020617 0%, #0a0e1a 45%, #0c1428 100%);
+}
+
+.auth-page-bg::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  opacity: 0.35;
+  background-image:
+    linear-gradient(rgba(30, 58, 138, 0.12) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(30, 58, 138, 0.12) 1px, transparent 1px);
+  background-size: 52px 52px;
+  mask-image: radial-gradient(ellipse 75% 65% at 50% 35%, black 15%, transparent 72%);
+}
+
+/* Auth card — glass panel, indigo edge glow */
+.auth-card {
+  position: relative;
+  background: linear-gradient(
+    155deg,
+    rgba(12, 18, 34, 0.92) 0%,
+    rgba(7, 11, 20, 0.88) 50%,
+    rgba(10, 15, 28, 0.95) 100%
+  );
+  border: 1px solid var(--color-auth-border);
+  border-radius: 1.125rem;
+  padding: 2rem 1.625rem;
+  backdrop-filter: blur(20px) saturate(1.15);
+  -webkit-backdrop-filter: blur(20px) saturate(1.15);
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.03) inset,
+    0 25px 50px -12px rgba(0, 0, 0, 0.45),
+    0 0 40px -8px rgba(37, 99, 235, 0.12);
+  display: flex;
+  justify-content: center;
+}
+
+.auth-card:hover {
+  border-color: rgba(59, 130, 246, 0.35);
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.04) inset,
+    0 28px 56px -12px rgba(0, 0, 0, 0.5),
+    0 0 48px -6px rgba(37, 99, 235, 0.18);
+}
+
+/*
+ * Clerk footer: plain row under a line — same tones as labels + formFieldAction (Clerk may inline color).
+ */
+.auth-card .cl-footer {
+  color: #94a3b8 !important;
+  background: transparent !important;
+  border: none !important;
+  border-top: 1px solid rgba(30, 58, 138, 0.45) !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+}
+
+.auth-card .cl-footer .cl-footerAction,
+.auth-card .cl-footer .cl-footerActionText,
+.auth-card .cl-footer [class*='footerAction']:not([class*='footerActionLink']) {
+  color: #94a3b8 !important;
+}
+
+.auth-card .cl-footer a,
+.auth-card .cl-footer .cl-footerActionLink,
+.auth-card .cl-footer [class*='footerActionLink'] {
+  color: #3b82f6 !important;
+  background: transparent !important;
+  border: none !important;
+  border-radius: 0 !important;
+  padding: 0 !important;
+  font-weight: 500 !important;
+  text-decoration: none !important;
+  box-shadow: none !important;
+}
+
+.auth-card .cl-footer a:hover,
+.auth-card .cl-footer .cl-footerActionLink:hover {
+  color: #60a5fa !important;
+}
+
+/* Clerk UserButton popover — match Sidebar (vg-sidebar #1e293b, muted #94a3b8, accent #3b82f6) */
+.cl-userButtonPopoverCard {
+  background-color: #1e293b !important;
+  border: 1px solid rgba(51, 65, 85, 0.9) !important;
+  border-radius: 0.75rem !important;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.55) !important;
+}
+
+.cl-userPreview__userButton {
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1) !important;
+  background: rgba(17, 24, 39, 0.55) !important;
+}
+
+.cl-userPreviewMainIdentifierText {
+  color: #ffffff !important;
+}
+
+.cl-userPreviewSecondaryIdentifier {
+  color: #94a3b8 !important;
+}
+
+.cl-userButtonPopoverActionButton {
+  color: #94a3b8 !important;
+}
+
+.cl-userButtonPopoverActionButton:hover {
+  color: #ffffff !important;
+  background-color: rgba(255, 255, 255, 0.05) !important;
+}
+
+.cl-userButtonPopoverActionButtonIcon,
+.cl-userButtonPopoverActionButtonIconBox {
+  color: #3b82f6 !important;
+}
+
+.cl-userButtonPopoverFooter {
+  display: none !important;
+}
+
+/* Hide Clerk "Secured by" branding & dev-mode badge, keep footer action links */
+.cl-footer > div:not([class*="cl-footerAction"]) {
+  display: none !important;
+}
+
+.cl-footer .cl-internal-1dauvpw,
+.cl-footer a[href*="clerk"],
+.cl-footer [data-localization-key="badge"] {
+  display: none !important;
 }
 
 /* Scrollbar styling */

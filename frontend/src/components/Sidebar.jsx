@@ -1,4 +1,5 @@
 import { NavLink } from 'react-router-dom';
+import { UserButton } from '@clerk/clerk-react';
 
 const navItems = [
   {
@@ -89,11 +90,14 @@ export default function Sidebar({ isOpen, onClose }) {
           ))}
         </nav>
 
-        {/* Status indicator */}
+        {/* User profile / sign-out */}
         <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-white/10">
-          <div className="flex items-center gap-2 px-4 py-2">
-            <div className="w-2 h-2 rounded-full bg-vg-success animate-pulse" />
-            <span className="text-vg-text-muted text-sm">System Online</span>
+          <div className="flex items-center gap-3 px-4 py-2">
+            <UserButton afterSignOutUrl="/" />
+            <div className="flex items-center gap-2">
+              <div className="w-2 h-2 rounded-full bg-vg-success animate-pulse" />
+              <span className="text-vg-text-muted text-sm">Online</span>
+            </div>
           </div>
         </div>
       </aside>

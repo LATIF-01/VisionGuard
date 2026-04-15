@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { apiFetchJson, getApiBaseUrl } from '../lib/api';
+import { getApiBaseUrl, useAuthedApi } from '../lib/api';
 import { mockAlerts } from '../data/mockAlerts';
 
 const severityConfig = {
@@ -77,6 +77,7 @@ export default function Alerts() {
   /** 'api' | 'mock' — mock only when fetch fails (no global GET /alerts exists yet; we use /runs + /runs/{id}/alerts) */
   const [source, setSource] = useState('api');
   const [offlineBannerDismissed, setOfflineBannerDismissed] = useState(false);
+  const apiFetch = useAuthedApi();
 
   useEffect(() => {
     let cancelled = false;
@@ -84,7 +85,7 @@ export default function Alerts() {
     async function load() {
       setLoading(true);
       try {
-        const runs = await apiFetchJson('/runs?limit=1');
+        const runs = await apiFetch('/runs?limit=1');
         if (cancelled) return;
 
         if (!runs.length) {
@@ -94,7 +95,7 @@ export default function Alerts() {
         }
 
         const run = runs[0];
-        const raw = await apiFetchJson(`/runs/${run.id}/alerts?limit=500`);
+        const raw = await apiFetch(`/runs/${run.id}/alerts?limit=500`);
         if (cancelled) return;
 
         const mapped = raw.map((a) => mapActionAlert(a, run));
@@ -115,7 +116,7 @@ export default function Alerts() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [apiFetch]);
 
   const criticalCount = alerts.filter((a) => a.type === 'critical').length;
   const warningCount = alerts.filter((a) => a.type === 'warning').length;

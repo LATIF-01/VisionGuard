@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { apiFetchJson } from '../lib/api';
+import { useAuthedApi } from '../lib/api';
 import { mockChatHistory } from '../data/mockChat';
 
 export default function LLMQuery() {
@@ -12,6 +12,7 @@ export default function LLMQuery() {
   const [useMockFallback, setUseMockFallback] = useState(false);
   const chatEndRef = useRef(null);
   const nextId = useRef(1);
+  const apiFetch = useAuthedApi();
 
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -23,7 +24,7 @@ export default function LLMQuery() {
     async function loadContext() {
       setLoading(true);
       try {
-        const runs = await apiFetchJson('/runs?limit=1');
+        const runs = await apiFetch('/runs?limit=1');
         if (cancelled) return;
 
         if (!runs.length) {
@@ -44,7 +45,7 @@ export default function LLMQuery() {
         const id = runs[0].id;
         setRunId(id);
 
-        const ctx = await apiFetchJson(`/runs/${id}/context`);
+        const ctx = await apiFetch(`/runs/${id}/context`);
         if (cancelled) return;
 
         setMessages([
@@ -71,7 +72,7 @@ export default function LLMQuery() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [apiFetch]);
 
   const handleSend = async () => {
     if (!inputValue.trim() || sending) return;
@@ -105,7 +106,7 @@ export default function LLMQuery() {
 
     setSending(true);
     try {
-      const data = await apiFetchJson(`/runs/${runId}/llm`, {
+      const data = await apiFetch(`/runs/${runId}/llm`, {
         method: 'POST',
         body: JSON.stringify({ question: content }),
       });
