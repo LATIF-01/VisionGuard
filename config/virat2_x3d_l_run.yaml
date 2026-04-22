@@ -1,8 +1,7 @@
 input: data/VIRAT2.mp4
 output: data/VIROUTLOGs3.mp4
 yolo_weights: weights/yolov8n.pt
-action_model: x3d_custom
-action_label_map: config/custom_action_labels.txt
+action_model: x3d_l
 enable_segmentation: true
 seg_weights: weights/yolov8n-seg.pt
 tracker: config/botsort_best_quality.yaml
