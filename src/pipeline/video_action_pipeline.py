@@ -188,10 +188,26 @@ def run(args) -> None:
 		crop_size=args.crop_size,
 		model_name=args.action_model,
 	)
+	expected_num_classes = recognizer.expected_num_classes
 
 	embedding_mgr = EmbeddingManager(device=args.device)
 
-	label_map = load_action_label_map(args.action_label_map, num_classes=400)
+	label_map = load_action_label_map(args.action_label_map, num_classes=expected_num_classes)
+
+	if len(label_map) < expected_num_classes:
+		raise ValueError(
+			f"Label map has only {len(label_map)} classes but model expects {expected_num_classes}. "
+			f"Ensure {args.action_label_map} contains enough action labels."
+		)
+
+	if expected_num_classes == 21:
+		placeholder_count = sum(
+			1 for idx in range(expected_num_classes) if label_map.get(idx, "").startswith("class_")
+		)
+		if placeholder_count > 0:
+			raise ValueError(
+				f"Custom model requires 21 explicit labels, but {placeholder_count} placeholders were found in {args.action_label_map}."
+			)
 
 	clip_buffers: Dict[int, Deque[np.ndarray]] = defaultdict(lambda: deque(maxlen=args.clip_len))
 	pred_hist: Dict[int, Deque[str]] = defaultdict(lambda: deque(maxlen=args.smooth_window))
@@ -523,7 +539,15 @@ def run(args) -> None:
 
 				if action_sample_frame and len(clip_buffers[stable_id]) == args.clip_len:
 					pred_idx, pred_score = recognizer.infer(list(clip_buffers[stable_id]))
-					pred_label = label_map.get(pred_idx, str(pred_idx))
+					
+					# Validate prediction index
+					if pred_idx < 0 or pred_idx >= expected_num_classes:
+						print(f"Warning: Invalid prediction index {pred_idx} for stable_id {stable_id}. "
+							  f"Model expects {expected_num_classes} classes. Using 'unknown'.")
+						pred_label = "unknown"
+					else:
+						pred_label = label_map.get(pred_idx, f"class_{pred_idx}")
+					
 					pred_hist[stable_id].append(pred_label)
 					smooth_label = Counter(pred_hist[stable_id]).most_common(1)[0][0]
 					action_state[stable_id] = ActionState(label=smooth_label, score=pred_score)
