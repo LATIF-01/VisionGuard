@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom';
+import PageBackdrop from '../components/PageBackdrop';
 import { useI18n } from '../i18n/useI18n';
 
 /** Hero tagline with a light emphasis on key terms (order differs for RTL Arabic). */
@@ -38,11 +39,8 @@ export default function Landing() {
   const { t } = useI18n();
 
   return (
-    <div className="min-h-screen bg-vg-dark flex flex-col items-center justify-center px-4">
-      <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute top-1/4 left-1/2 -translate-x-1/2 w-[600px] h-[600px] bg-vg-accent/10 rounded-full blur-3xl" />
-        <div className="absolute bottom-1/4 left-1/4 w-[400px] h-[400px] bg-vg-accent/5 rounded-full blur-3xl" />
-      </div>
+    <div className="min-h-screen flex flex-col items-center justify-center px-4 relative">
+      <PageBackdrop />
 
       {/* Wider than prose so headline + glows fit; body text stays readable below */}
       <div className="relative z-10 w-full max-w-5xl mx-auto px-3 sm:px-6 text-center animate-fade-in">

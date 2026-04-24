@@ -3,7 +3,6 @@ import { useI18n } from '../i18n/useI18n';
 import {
   DEMO_SCENARIOS,
   DEMO_ANALYZE_STEP_KEYS,
-  DEMO_SUGGESTED_PROMPTS,
   buildInitialChatMessages,
   getDemoScenarioById,
   getMockAssistantReply,
@@ -14,8 +13,9 @@ import DemoSummaryCard from '../components/demo/DemoSummaryCard';
 import DemoTimeline from '../components/demo/DemoTimeline';
 import DemoChatPanel from '../components/demo/DemoChatPanel';
 
-const ANALYZE_STEP_MS = 650;
-const ANALYZE_FINISH_MS = 2600;
+const ANALYZE_STEP_MS = 430;
+const ANALYZE_FINISH_MS = 2400;
+const EVENT_REVEAL_MS = 240;
 
 let chatIdSeq = 0;
 function nextChatId() {
@@ -27,11 +27,15 @@ export default function Demo() {
   const { t } = useI18n();
   const [selectedId, setSelectedId] = useState(DEMO_SCENARIOS[0]?.id ?? '');
   const [isAnalyzing, setIsAnalyzing] = useState(false);
-  const [analysisComplete, setAnalysisComplete] = useState(false);
+  const [isAnalyzed, setIsAnalyzed] = useState(false);
   const [analyzeStepIndex, setAnalyzeStepIndex] = useState(0);
+  const [revealedEventCount, setRevealedEventCount] = useState(0);
   const [chatMessages, setChatMessages] = useState(() => buildInitialChatMessages(DEMO_SCENARIOS[0]));
   const [chatInput, setChatInput] = useState('');
+  const [demoVideoPlaybackReady, setDemoVideoPlaybackReady] = useState(false);
   const analyzeTimersRef = useRef([]);
+  const revealTimersRef = useRef([]);
+  const chatReplyTimerRef = useRef(null);
 
   const scenario = useMemo(() => getDemoScenarioById(selectedId), [selectedId]);
 
@@ -71,6 +75,36 @@ export default function Demo() {
     analyzeTimersRef.current = [];
   }, []);
 
+  const clearRevealTimers = useCallback(() => {
+    revealTimersRef.current.forEach((id) => clearTimeout(id));
+    revealTimersRef.current = [];
+  }, []);
+
+  const clearChatReplyTimer = useCallback(() => {
+    if (chatReplyTimerRef.current) clearTimeout(chatReplyTimerRef.current);
+    chatReplyTimerRef.current = null;
+  }, []);
+
+  // One place to stop timers and return to the pre-analysis UI state.
+  const resetAnalysisState = useCallback(() => {
+    clearAnalyzeTimers();
+    clearRevealTimers();
+    clearChatReplyTimer();
+    setIsAnalyzing(false);
+    setIsAnalyzed(false);
+    setAnalyzeStepIndex(0);
+    setRevealedEventCount(0);
+  }, [clearAnalyzeTimers, clearRevealTimers, clearChatReplyTimer]);
+
+  useEffect(
+    () => () => {
+      clearAnalyzeTimers();
+      clearRevealTimers();
+      clearChatReplyTimer();
+    },
+    [clearAnalyzeTimers, clearRevealTimers, clearChatReplyTimer]
+  );
+
   useEffect(() => {
     if (!isAnalyzing) return undefined;
 
@@ -83,64 +117,84 @@ export default function Demo() {
     });
 
     const finishId = setTimeout(() => {
+      clearRevealTimers();
       setIsAnalyzing(false);
-      setAnalysisComplete(true);
-      setAnalyzeStepIndex(DEMO_ANALYZE_STEP_KEYS.length);
+      setIsAnalyzed(true);
+      setAnalyzeStepIndex(DEMO_ANALYZE_STEP_KEYS.length - 1);
+      setRevealedEventCount(0);
+      setChatMessages((prev) => [
+        ...prev,
+        {
+          id: nextChatId(),
+          role: 'assistant',
+          content: t('demo.chatAutoInsight'),
+        },
+      ]);
       clearAnalyzeTimers();
     }, ANALYZE_FINISH_MS);
     analyzeTimersRef.current.push(finishId);
 
     return () => clearAnalyzeTimers();
-  }, [isAnalyzing, clearAnalyzeTimers]);
+  }, [isAnalyzing, clearAnalyzeTimers, clearRevealTimers, t]);
+
+  useEffect(() => {
+    if (!isAnalyzed || isAnalyzing || !scenario) return undefined;
+    clearRevealTimers();
+    // Reveal events in sequence to simulate timeline generation.
+    scenario.events.forEach((_, i) => {
+      const tid = setTimeout(() => setRevealedEventCount(i + 1), (i + 1) * EVENT_REVEAL_MS);
+      revealTimersRef.current.push(tid);
+    });
+    return () => clearRevealTimers();
+  }, [isAnalyzed, isAnalyzing, scenario, clearRevealTimers]);
 
   const handleSelectScenario = useCallback((id) => {
-    clearAnalyzeTimers();
-    setIsAnalyzing(false);
-    setAnalysisComplete(false);
-    setAnalyzeStepIndex(0);
+    resetAnalysisState();
     setSelectedId(id);
     const next = getDemoScenarioById(id);
     if (next) setChatMessages(buildInitialChatMessages(next));
     setChatInput('');
-  }, [clearAnalyzeTimers]);
+  }, [resetAnalysisState]);
 
   const handleAnalyze = useCallback(() => {
+    resetAnalysisState();
+    if (scenario) setChatMessages(buildInitialChatMessages(scenario));
     clearAnalyzeTimers();
-    setAnalysisComplete(false);
     setAnalyzeStepIndex(0);
     setIsAnalyzing(true);
-  }, [clearAnalyzeTimers]);
+  }, [clearAnalyzeTimers, resetAnalysisState, scenario]);
 
   const handleReset = useCallback(() => {
-    clearAnalyzeTimers();
-    setIsAnalyzing(false);
-    setAnalysisComplete(false);
-    setAnalyzeStepIndex(0);
+    resetAnalysisState();
     if (scenario) setChatMessages(buildInitialChatMessages(scenario));
     setChatInput('');
-  }, [clearAnalyzeTimers, scenario]);
+  }, [resetAnalysisState, scenario]);
 
   const appendAssistant = useCallback((content) => {
     setChatMessages((prev) => [...prev, { id: nextChatId(), role: 'assistant', content }]);
   }, []);
 
   const handleSend = useCallback(() => {
+    if (!isAnalyzed || !scenario) return;
     const text = chatInput.trim();
     if (!text) return;
     setChatMessages((prev) => [...prev, { id: nextChatId(), role: 'user', content: text }]);
     setChatInput('');
-    const reply = getMockAssistantReply(text);
-    setTimeout(() => appendAssistant(reply), 450);
-  }, [chatInput, appendAssistant]);
+    const reply = getMockAssistantReply(scenario, text);
+    clearChatReplyTimer();
+    chatReplyTimerRef.current = setTimeout(() => appendAssistant(reply), 450);
+  }, [chatInput, appendAssistant, isAnalyzed, scenario, clearChatReplyTimer]);
 
   const handlePromptChip = useCallback(
     (promptText) => {
+      if (!isAnalyzed || !scenario) return;
       setChatInput(promptText);
       setChatMessages((prev) => [...prev, { id: nextChatId(), role: 'user', content: promptText }]);
-      const reply = getMockAssistantReply(promptText);
-      setTimeout(() => appendAssistant(reply), 450);
+      const reply = getMockAssistantReply(scenario, promptText);
+      clearChatReplyTimer();
+      chatReplyTimerRef.current = setTimeout(() => appendAssistant(reply), 450);
     },
-    [appendAssistant]
+    [appendAssistant, isAnalyzed, scenario, clearChatReplyTimer]
   );
 
   if (!scenario) {
@@ -156,15 +210,16 @@ export default function Demo() {
         </div>
       </div>
 
-      {/* Top: scenarios | hero player | intelligence */}
+      {/* Top: event timeline (alone, scrollable) | hero player | summary + scenario list */}
       <div className="grid grid-cols-1 xl:grid-cols-12 gap-4 lg:gap-6 items-stretch min-h-0">
-        <div className="xl:col-span-3 order-2 xl:order-1 min-h-0">
-          <DemoScenarioList
-            scenarios={DEMO_SCENARIOS}
-            selectedId={selectedId}
-            onSelect={handleSelectScenario}
-            title={t('demo.scenariosTitle')}
-            severityLabels={severityLabels}
+        <div className="xl:col-span-3 order-2 xl:order-1 flex flex-col h-full min-h-0 max-h-[720px] xl:max-h-none">
+          <DemoTimeline
+            heading={t('demo.timelineHeading')}
+            events={scenario.events}
+            isReady={isAnalyzed}
+            visibleCount={revealedEventCount}
+            skeletonLabel={t('demo.awaitingAnalysis')}
+            animateSkeleton={demoVideoPlaybackReady}
           />
         </div>
 
@@ -172,9 +227,10 @@ export default function Demo() {
           <DemoPlayer
             activeScenarioLabel={t('demo.activeScenario')}
             title={scenario.title}
-            videoSrc={scenario.videoSrc}
+            rawVideoSrc={scenario.rawVideoUrl}
+            analyzedVideoSrc={scenario.analyzedVideoUrl}
             isAnalyzing={isAnalyzing}
-            analysisComplete={analysisComplete}
+            isAnalyzed={isAnalyzed}
             analyzeStepLabels={analyzeStepLabels}
             activeAnalyzeStepIndex={Math.min(analyzeStepIndex, DEMO_ANALYZE_STEP_KEYS.length - 1)}
             onAnalyze={handleAnalyze}
@@ -186,17 +242,32 @@ export default function Demo() {
             completeLabel={t('demo.analysisComplete')}
             noSignalLabel={t('demo.noSignal')}
             videoNotSupportedLabel={t('dashboard.videoNotSupported')}
+            onVideoPlaybackReadyChange={setDemoVideoPlaybackReady}
+            videoStableKey={`${selectedId}-${isAnalyzed}`}
           />
         </div>
 
         <div className="xl:col-span-3 order-3 flex flex-col gap-4 min-h-0 max-h-[720px] xl:max-h-none">
           <div className="shrink-0">
-            <h2 className="text-xs font-semibold uppercase tracking-wider text-vg-text-muted mb-3 px-1">
-              {t('demo.intelligenceTitle')}
-            </h2>
-            <DemoSummaryCard heading={t('demo.summaryHeading')} summary={scenario.summary} metricLabels={metricLabels} />
+            <DemoSummaryCard
+              heading={t('demo.summaryHeading')}
+              summary={scenario.summary}
+              metrics={scenario.metrics}
+              metricLabels={metricLabels}
+              isReady={isAnalyzed}
+              skeletonLabel={t('demo.awaitingAnalysis')}
+              animateSkeleton={demoVideoPlaybackReady}
+            />
           </div>
-          <DemoTimeline heading={t('demo.timelineHeading')} events={scenario.timeline} />
+          <div className="min-h-0 flex-1 flex flex-col">
+            <DemoScenarioList
+              scenarios={DEMO_SCENARIOS}
+              selectedId={selectedId}
+              onSelect={handleSelectScenario}
+              title={t('demo.scenariosTitle')}
+              severityLabels={severityLabels}
+            />
+          </div>
         </div>
       </div>
 
@@ -205,7 +276,7 @@ export default function Demo() {
         title={t('demo.chatTitle')}
         subtitle={t('demo.chatSubtitle')}
         messages={chatMessages}
-        suggestedPrompts={DEMO_SUGGESTED_PROMPTS}
+        suggestedPrompts={scenario.suggestedPrompts}
         inputValue={chatInput}
         onInputChange={setChatInput}
         onSend={handleSend}
@@ -214,6 +285,10 @@ export default function Demo() {
         sendLabel={t('demo.send')}
         userLabel={t('demo.youLabel')}
         assistantLabel={t('demo.assistantLabel')}
+        isEnabled={isAnalyzed}
+        lockedMessage={t('demo.chatLockedMessage')}
+        skeletonLabel={t('demo.awaitingAnalysis')}
+        animateSkeleton={demoVideoPlaybackReady}
       />
     </div>
   );

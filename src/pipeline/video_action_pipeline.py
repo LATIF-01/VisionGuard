@@ -176,6 +176,56 @@ class AsyncDBEventSink:
 			raise RuntimeError(f"Async DB sink worker failed: {self._worker_error}")
 
 
+def draw_modern_box(
+	frame: np.ndarray,
+	x1: int,
+	y1: int,
+	x2: int,
+	y2: int,
+	*,
+	color: Tuple[int, int, int] = (80, 235, 120),
+	line_thickness: int = 2,
+	fill_alpha: float = 0.16,
+	corner_ratio: float = 0.2,
+) -> None:
+	"""Draw a modern overlay box with subtle fill and corner accents."""
+	if x1 >= x2 or y1 >= y2:
+		return
+
+	h, w = frame.shape[:2]
+	x1 = max(0, min(x1, w - 1))
+	y1 = max(0, min(y1, h - 1))
+	x2 = max(0, min(x2, w - 1))
+	y2 = max(0, min(y2, h - 1))
+	if x1 >= x2 or y1 >= y2:
+		return
+
+	# Add a transparent fill to improve target visibility without clutter.
+	overlay = frame.copy()
+	cv2.rectangle(overlay, (x1, y1), (x2, y2), color, -1)
+	cv2.addWeighted(overlay, float(fill_alpha), frame, 1.0 - float(fill_alpha), 0.0, frame)
+
+	box_w = x2 - x1
+	box_h = y2 - y1
+	corner_len = max(8, int(min(box_w, box_h) * float(corner_ratio)))
+
+	# Draw corner accents for a cleaner modern style.
+	cv2.line(frame, (x1, y1), (x1 + corner_len, y1), color, line_thickness, cv2.LINE_AA)
+	cv2.line(frame, (x1, y1), (x1, y1 + corner_len), color, line_thickness, cv2.LINE_AA)
+
+	cv2.line(frame, (x2, y1), (x2 - corner_len, y1), color, line_thickness, cv2.LINE_AA)
+	cv2.line(frame, (x2, y1), (x2, y1 + corner_len), color, line_thickness, cv2.LINE_AA)
+
+	cv2.line(frame, (x1, y2), (x1 + corner_len, y2), color, line_thickness, cv2.LINE_AA)
+	cv2.line(frame, (x1, y2), (x1, y2 - corner_len), color, line_thickness, cv2.LINE_AA)
+
+	cv2.line(frame, (x2, y2), (x2 - corner_len, y2), color, line_thickness, cv2.LINE_AA)
+	cv2.line(frame, (x2, y2), (x2, y2 - corner_len), color, line_thickness, cv2.LINE_AA)
+
+	# Keep a very light outer frame for better edge definition.
+	cv2.rectangle(frame, (x1, y1), (x2, y2), color, 1, cv2.LINE_AA)
+
+
 def run(args) -> None:
 	apply_action_model_presets(args)
 
@@ -552,17 +602,13 @@ def run(args) -> None:
 					smooth_label = Counter(pred_hist[stable_id]).most_common(1)[0][0]
 					action_state[stable_id] = ActionState(label=smooth_label, score=pred_score)
 
-				action_text = "action:pending"
 				if stable_id in action_state:
 					state = action_state[stable_id]
-					action_text = f"action:{state.label} ({state.score:.2f})"
 					action_label = state.label
 					action_score = float(state.score)
 				else:
 					action_label = "pending"
 					action_score = 0.0
-
-				text = f"ID {stable_id} obj:{obj_label} det:{conf:.2f} | {action_text}"
 
 				event_payload = {
 					"frame_idx": frame_idx,
@@ -609,16 +655,7 @@ def run(args) -> None:
 							run_id = async_db_sink.run_id if async_db_sink else ""
 							alert_notifier.notify(alert_payload, run_id=run_id)
 
-				cv2.rectangle(frame, (x1, y1), (x2, y2), (30, 220, 30), 2)
-				cv2.putText(
-					frame,
-					text,
-					(x1, max(18, y1 - 8)),
-					cv2.FONT_HERSHEY_SIMPLEX,
-					0.55,
-					(30, 220, 30),
-					2,
-				)
+				draw_modern_box(frame, x1, y1, x2, y2)
 
 		writer.write(frame)
 		if async_event_logger is not None and args.event_log_frames:

@@ -11,7 +11,7 @@ export default function DemoAnalyzeOverlay({ visible, activeStepIndex, stepLabel
           <div className="demo-analyze-spinner w-10 h-10 rounded-full border-2 border-vg-accent/30 border-t-vg-accent" />
           <div>
             <p className="text-white font-semibold">VisionGuard</p>
-            <p className="text-vg-text-muted text-sm">Pipeline preview (mock)</p>
+            <p className="text-vg-text-muted text-sm">AI processing engine</p>
           </div>
         </div>
         <ul className="space-y-3">

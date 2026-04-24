@@ -160,46 +160,40 @@ body {
 }
 
 /* Button styles */
-/* Sky-blue glass pill — colored glass with specular rim */
+/* Primary CTA — flat sky accent, minimal shadow (matches --color-vg-accent) */
 .btn-primary {
-  background: linear-gradient(
-    135deg,
-    rgba(14, 165, 233, 0.75) 0%,
-    rgba(56, 189, 248, 0.65) 100%
-  );
-  backdrop-filter: blur(12px) saturate(160%);
-  -webkit-backdrop-filter: blur(12px) saturate(160%);
-  color: white;
+  background-color: var(--color-vg-accent);
+  color: #f8fafc;
   padding: 0.75rem 1.5rem;
+  /* Pill corners — match .btn-demo / .demo-btn-wrapper */
   border-radius: 9999px;
-  font-weight: 500;
-  transition: all 0.3s ease;
-  border: 1px solid rgba(56, 189, 248, 0.4);
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  transition:
+    background-color 0.18s ease,
+    box-shadow 0.18s ease,
+    color 0.18s ease;
+  border: 1px solid color-mix(in srgb, var(--color-vg-accent) 88%, #0c4a6e 12%);
   cursor: pointer;
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.35),
-    0 0 18px rgba(14, 165, 233, 0.4),
-    0 4px 16px -4px rgba(0, 0, 0, 0.4);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.18);
   display: inline-block;
   text-decoration: none;
 }
 
 .btn-primary:hover:not(:disabled) {
-  background: linear-gradient(
-    135deg,
-    rgba(56, 189, 248, 0.85) 0%,
-    rgba(14, 165, 233, 0.75) 100%
-  );
-  border-color: rgba(56, 189, 248, 0.6);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.45),
-    0 0 28px rgba(14, 165, 233, 0.55),
-    0 6px 20px -4px rgba(0, 0, 0, 0.4);
-  transform: translateY(-1px);
+  background-color: var(--color-vg-accent-light);
+  color: #ffffff;
+  border-color: color-mix(in srgb, var(--color-vg-accent-light) 82%, #ffffff 18%);
+  box-shadow: 0 4px 16px -4px rgba(14, 165, 233, 0.45);
+}
+
+.btn-primary:focus-visible {
+  outline: 2px solid rgba(56, 189, 248, 0.65);
+  outline-offset: 3px;
 }
 
 .btn-primary:disabled {
-  opacity: 0.4;
+  opacity: 0.45;
   cursor: not-allowed;
 }
 
@@ -281,6 +275,87 @@ body {
   color: #7dd3fc;
 }
 
+/* Hero analyze CTA — same 2px conic ring + dark fill; kinetic ring: spin + light pulse (not the sidebar’s fast loop) */
+.demo-hero-cta-wrap {
+  position: relative;
+  border-radius: 0.5rem;
+  padding: 2px;
+  overflow: hidden;
+}
+
+.demo-hero-cta-wrap::before {
+  content: '';
+  position: absolute;
+  inset: -100%;
+  background: conic-gradient(
+    from 0deg,
+    transparent 0deg,
+    #0c4a6e 60deg,
+    #0ea5e9 100deg,
+    #38bdf8 140deg,
+    #7dd3fc 180deg,
+    #38bdf8 220deg,
+    #0ea5e9 260deg,
+    #0c4a6e 300deg,
+    transparent 360deg
+  );
+  animation: demo-hero-cta-kinetic 4.8s linear infinite;
+  filter: blur(1px);
+}
+
+.demo-hero-cta-wrap:has(.btn-demo:disabled)::before {
+  animation: none;
+  opacity: 0.45;
+}
+
+/* Full turn + “breath” on scale/opacity so motion reads stronger than a static pulse */
+@keyframes demo-hero-cta-kinetic {
+  0% {
+    transform: rotate(0deg) scale(0.98);
+    opacity: 0.7;
+  }
+  25% {
+    transform: rotate(90deg) scale(1.06);
+    opacity: 0.95;
+  }
+  50% {
+    transform: rotate(180deg) scale(1.02);
+    opacity: 0.85;
+  }
+  75% {
+    transform: rotate(270deg) scale(1.05);
+    opacity: 1;
+  }
+  100% {
+    transform: rotate(360deg) scale(0.98);
+    opacity: 0.7;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .demo-hero-cta-wrap::before {
+    animation: none;
+    opacity: 0.75;
+  }
+}
+
+.demo-hero-cta-wrap .btn-demo {
+  border-radius: 0.5rem;
+  min-height: 52px;
+  width: 100%;
+  font-weight: 600;
+  font-size: 1rem;
+}
+
+.demo-hero-cta-wrap .btn-demo:enabled {
+  box-shadow: 0 0 14px rgba(56, 189, 248, 0.35);
+}
+
+.demo-hero-cta-wrap .btn-demo:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
 /* Card styles — glass surface that floats over the wallpaper */
 .card {
   background: rgba(5, 12, 26, 0.45);
@@ -322,6 +397,18 @@ body {
     0 20px 40px -20px rgba(0, 0, 0, 0.6);
 }
 
+/* Top app bar — same glass surface as .demo-panel (hero / scenario list) */
+.app-header-panel {
+  border-radius: 0.875rem;
+  border: 1px solid rgba(56, 189, 248, 0.1);
+  background: rgba(5, 14, 30, 0.65);
+  backdrop-filter: blur(20px) saturate(150%);
+  -webkit-backdrop-filter: blur(20px) saturate(150%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    0 20px 40px -20px rgba(0, 0, 0, 0.6);
+}
+
 .demo-panel--sidebar {
   max-height: 720px;
 }
@@ -338,6 +425,15 @@ body {
 
 .demo-hero-frame {
   box-shadow: inset 0 0 0 1px rgba(14, 165, 233, 0.08), 0 0 60px -20px rgba(14, 165, 233, 0.18);
+}
+
+.demo-video-analyzing {
+  filter: blur(2.5px) brightness(0.6) saturate(0.8);
+  transform: scale(1.01);
+}
+
+.demo-video-fade-in {
+  animation: demo-video-fade-in 260ms ease-out both;
 }
 
 .demo-scenario-card--idle {
@@ -384,9 +480,9 @@ body {
 }
 
 .demo-analyze-overlay {
-  background: rgba(2, 6, 23, 0.72);
-  backdrop-filter: blur(6px);
-  -webkit-backdrop-filter: blur(6px);
+  background: linear-gradient(165deg, rgba(2, 6, 23, 0.62) 0%, rgba(2, 6, 23, 0.8) 100%);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
 }
 
 .demo-analyze-spinner {
@@ -420,9 +516,37 @@ body {
   box-shadow: 0 12px 30px -18px rgba(0, 0, 0, 0.5);
 }
 
+.demo-reveal-card {
+  animation: demo-card-fade-in 280ms ease-out;
+}
+
+.demo-metric-tile--reveal {
+  animation: demo-metric-pop 320ms ease-out both;
+}
+
+.demo-metric-tile--reveal:nth-child(2) {
+  animation-delay: 70ms;
+}
+
+.demo-metric-tile--reveal:nth-child(3) {
+  animation-delay: 130ms;
+}
+
 .demo-timeline-scroll {
   scrollbar-width: thin;
   scrollbar-color: rgba(14, 165, 233, 0.35) transparent;
+}
+
+.demo-event-reveal {
+  animation: demo-event-in 300ms ease-out both;
+}
+
+.demo-timeline-row--critical {
+  box-shadow: 0 0 18px -8px rgba(239, 68, 68, 0.8);
+}
+
+.demo-critical-text {
+  animation: demo-critical-pulse 1.2s ease-in-out infinite;
 }
 
 .demo-chat-section {
@@ -451,35 +575,84 @@ body {
   font-weight: 600;
 }
 
-/* Auth shell — sign-in / sign-up pages */
+.demo-skeleton-block {
+  position: relative;
+  background: linear-gradient(90deg, rgba(51, 65, 85, 0.34) 20%, rgba(100, 116, 139, 0.5) 50%, rgba(51, 65, 85, 0.34) 80%);
+  background-size: 200% 100%;
+  animation: demo-skeleton-shimmer 1.25s linear infinite;
+}
+
+.demo-skeleton-block--static {
+  background: rgba(51, 65, 85, 0.42) !important;
+  background-size: auto !important;
+  animation: none !important;
+}
+
+@keyframes demo-card-fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes demo-metric-pop {
+  from {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes demo-event-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes demo-critical-pulse {
+  0%,
+  100% {
+    text-shadow: 0 0 0 rgba(248, 113, 113, 0);
+  }
+  50% {
+    text-shadow: 0 0 10px rgba(248, 113, 113, 0.45);
+  }
+}
+
+@keyframes demo-skeleton-shimmer {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+@keyframes demo-video-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* Auth shell — sign-in / sign-up pages (backdrop: PageBackdrop, same as Landing / Layout) */
 .auth-page {
   position: relative;
-  background-color: var(--color-vg-dark);
   color: var(--color-vg-text);
-}
-
-/* Auth page background — deep ocean navy with sky-blue spotlight */
-.auth-page-bg {
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  z-index: 0;
-  background:
-    radial-gradient(ellipse 100% 70% at 50% -20%, rgba(14, 165, 233, 0.18), transparent 60%),
-    radial-gradient(ellipse 60% 50% at 80% 70%, rgba(30, 64, 175, 0.15), transparent 55%),
-    linear-gradient(165deg, #020912 0%, #050c1a 45%, #061525 100%);
-}
-
-.auth-page-bg::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  opacity: 0.3;
-  background-image:
-    linear-gradient(rgba(14, 165, 233, 0.1) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(14, 165, 233, 0.1) 1px, transparent 1px);
-  background-size: 52px 52px;
-  mask-image: radial-gradient(ellipse 75% 65% at 50% 35%, black 15%, transparent 72%);
 }
 
 /* Auth card — deep navy glass panel with sky-blue edge glow */

@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Outlet } from 'react-router-dom';
 import { UserButton } from '@clerk/clerk-react';
 import Sidebar from './Sidebar';
-import LiquidBackground from './LiquidBackground';
+import PageBackdrop from './PageBackdrop';
 import { useI18n } from '../i18n/useI18n';
 
 export default function Layout() {
@@ -10,20 +10,12 @@ export default function Layout() {
   const { t } = useI18n();
 
   return (
-    <div className="min-h-screen bg-vg-dark relative">
-      <LiquidBackground />
-      {/* SVG filter provides displacement-based lensing for liquid glass */}
-      <svg className="absolute w-0 h-0" aria-hidden focusable="false">
-        <filter id="liquid-glass-filter" x="0%" y="0%" width="100%" height="100%">
-          <feTurbulence type="fractalNoise" baseFrequency="0.008 0.008" numOctaves="2" seed="5" />
-          <feDisplacementMap in="SourceGraphic" scale="70" />
-        </filter>
-      </svg>
+    <div className="min-h-screen relative">
+      <PageBackdrop />
 
       <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
 
-      {/* iOS 26 Liquid Glass top bar */}
-      <header className="fixed top-3 inset-x-3 h-14 z-30 flex items-center justify-between px-5 rounded-full liquid-glass">
+      <header className="fixed top-3 inset-x-3 h-14 z-30 flex items-center justify-between px-5 app-header-panel">
         <div className="flex items-center min-w-0 gap-3">
           <button
             type="button"

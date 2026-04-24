@@ -1,17 +1,12 @@
 import { SignIn as ClerkSignIn } from '@clerk/clerk-react';
 import { Link } from 'react-router-dom';
+import PageBackdrop from '../components/PageBackdrop';
 import { clerkAuthAppearance } from '../clerkAuthAppearance';
 
 export default function SignIn() {
   return (
-    <div className="auth-page min-h-screen flex flex-col items-center justify-center px-4">
-      {/* Mesh + orbs — deep blue modern backdrop */}
-      <div className="auth-page-bg" aria-hidden />
-      <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute top-[18%] left-1/2 -translate-x-1/2 w-[min(90vw,560px)] h-[560px] rounded-full bg-[radial-gradient(circle,rgba(37,99,235,0.14)_0%,transparent_65%)] blur-2xl" />
-        <div className="absolute bottom-[12%] right-[8%] w-[320px] h-[320px] rounded-full bg-[radial-gradient(circle,rgba(30,58,138,0.35)_0%,transparent_70%)] blur-3xl opacity-80" />
-        <div className="absolute top-[40%] left-[5%] w-[240px] h-[240px] rounded-full bg-[radial-gradient(circle,rgba(15,23,42,0.9)_0%,transparent_70%)] blur-2xl" />
-      </div>
+    <div className="auth-page min-h-screen flex flex-col items-center justify-center px-4 relative">
+      <PageBackdrop />
 
       <div className="relative z-10 w-full max-w-md animate-fade-in">
         <Link
