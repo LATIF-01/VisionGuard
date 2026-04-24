@@ -8,6 +8,7 @@ import Dashboard from './pages/Dashboard';
 import Alerts from './pages/Alerts';
 import LLMQuery from './pages/LLMQuery';
 import Settings from './pages/Settings';
+import Demo from './pages/Demo';
 
 export default function App() {
   return (
@@ -27,6 +28,7 @@ export default function App() {
           }
         >
           <Route path="/dashboard" element={<Dashboard />} />
+          <Route path="/demo" element={<Demo />} />
           <Route path="/alerts" element={<Alerts />} />
           <Route path="/query" element={<LLMQuery />} />
           <Route path="/settings" element={<Settings />} />

@@ -1,8 +1,10 @@
 import { useAuth } from '@clerk/clerk-react';
 import { Navigate } from 'react-router-dom';
+import { useI18n } from '../i18n/useI18n';
 
 export default function ProtectedRoute({ children }) {
   const { isLoaded, isSignedIn } = useAuth();
+  const { t } = useI18n();
 
   if (!isLoaded) {
     return (
@@ -11,7 +13,7 @@ export default function ProtectedRoute({ children }) {
           <div className="w-12 h-12 rounded-xl bg-vg-accent flex items-center justify-center animate-pulse-glow">
             <span className="text-white font-bold text-lg">VG</span>
           </div>
-          <span className="text-vg-text-muted text-sm">Loading...</span>
+          <span className="text-vg-text-muted text-sm">{t('common.loading')}</span>
         </div>
       </div>
     );

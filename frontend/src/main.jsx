@@ -4,6 +4,7 @@ import { ClerkProvider } from '@clerk/clerk-react'
 import './index.css'
 import App from './App.jsx'
 import { clerkUserButtonAppearance } from './clerkUserButtonAppearance'
+import { I18nProvider } from './i18n/I18nProvider'
 
 const CLERK_KEY = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY
 
@@ -21,7 +22,9 @@ createRoot(document.getElementById('root')).render(
         userProfile: { variables: clerkUserButtonAppearance.variables },
       }}
     >
-      <App />
+      <I18nProvider>
+        <App />
+      </I18nProvider>
     </ClerkProvider>
   </StrictMode>,
 )

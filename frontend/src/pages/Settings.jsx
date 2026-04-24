@@ -1,7 +1,9 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useAuthedApi } from '../lib/api';
+import { useI18n } from '../i18n/useI18n';
 
 export default function Settings() {
+  const { t, locale, setLocale } = useI18n();
   const [pref, setPref] = useState(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -16,11 +18,11 @@ export default function Settings() {
       const data = await apiFetch('/me/notifications');
       setPref(data);
     } catch {
-      setError('Could not load notification settings. Make sure the backend is running.');
+      setError(t('settings.loadError'));
     } finally {
       setLoading(false);
     }
-  }, [apiFetch]);
+  }, [apiFetch, t]);
 
   useEffect(() => {
     loadPrefs();
@@ -38,40 +40,95 @@ export default function Settings() {
       });
       setPref(updated);
       setSuccessMsg(
-        updated.email_alerts_enabled
-          ? 'Email alerts enabled — you will receive notifications.'
-          : 'Email alerts disabled — you will no longer receive email notifications.'
+        updated.email_alerts_enabled ? t('settings.successEnabled') : t('settings.successDisabled')
       );
       setTimeout(() => setSuccessMsg(''), 4000);
     } catch {
-      setError('Failed to update preferences. Please try again.');
+      setError(t('settings.updateError'));
     } finally {
       setSaving(false);
     }
   }
 
+  const langLabel = locale === 'ar' ? t('settings.langName.ar') : t('settings.langName.en');
+
   return (
     <div className="space-y-6 max-w-2xl">
-      {/* Header */}
       <div>
-        <h1 className="text-2xl font-bold text-white">Settings</h1>
-        <p className="text-vg-text-muted mt-1">Manage your notification preferences</p>
+        <h1 className="text-2xl font-bold text-white">{t('settings.title')}</h1>
+        <p className="text-vg-text-muted mt-1">{t('settings.subtitle')}</p>
       </div>
 
-      {/* Notifications card */}
+      {/* Language */}
       <div className="card p-6 space-y-6">
         <div className="flex items-center gap-3 pb-4 border-b border-white/10">
           <div className="w-10 h-10 rounded-lg bg-vg-accent/20 flex items-center justify-center">
             <svg className="w-5 h-5 text-vg-accent" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-                d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M3 5h12M9 3v2m1.048 9.5A18.022 18.022 0 016.412 9m6.088 9h7M11 21l5-10 5 10M12.751 5C11.783 10.77 8.07 15.61 3 18.129"
+              />
             </svg>
           </div>
           <div>
-            <h2 className="text-lg font-semibold text-white">Email Notifications</h2>
-            <p className="text-vg-text-muted text-sm">
-              Receive email alerts when the system detects suspicious activity
-            </p>
+            <h2 className="text-lg font-semibold text-white">{t('settings.languageTitle')}</h2>
+            <p className="text-vg-text-muted text-sm">{t('settings.languageDesc')}</p>
+          </div>
+        </div>
+
+        <p className="text-vg-text-muted text-sm">
+          {t('settings.languageCurrent', { lang: langLabel })}
+        </p>
+
+        <div className="flex flex-wrap gap-3">
+          <button
+            type="button"
+            onClick={() => setLocale('ar')}
+            className={`
+              px-5 py-2.5 rounded-lg text-sm font-medium transition-all
+              ${
+                locale === 'ar'
+                  ? 'bg-vg-accent text-white glow-blue-sm'
+                  : 'bg-white/10 text-white hover:bg-white/15'
+              }
+            `}
+          >
+            {t('settings.switchToArabic')}
+          </button>
+          <button
+            type="button"
+            onClick={() => setLocale('en')}
+            className={`
+              px-5 py-2.5 rounded-lg text-sm font-medium transition-all
+              ${
+                locale === 'en'
+                  ? 'bg-vg-accent text-white glow-blue-sm'
+                  : 'bg-white/10 text-white hover:bg-white/15'
+              }
+            `}
+          >
+            {t('settings.switchToEnglish')}
+          </button>
+        </div>
+      </div>
+
+      <div className="card p-6 space-y-6">
+        <div className="flex items-center gap-3 pb-4 border-b border-white/10">
+          <div className="w-10 h-10 rounded-lg bg-vg-accent/20 flex items-center justify-center">
+            <svg className="w-5 h-5 text-vg-accent" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"
+              />
+            </svg>
+          </div>
+          <div>
+            <h2 className="text-lg font-semibold text-white">{t('settings.emailNotifTitle')}</h2>
+            <p className="text-vg-text-muted text-sm">{t('settings.emailNotifDesc')}</p>
           </div>
         </div>
 
@@ -90,27 +147,28 @@ export default function Settings() {
         {loading ? (
           <div className="flex items-center gap-3 py-4">
             <div className="w-5 h-5 border-2 border-vg-accent/30 border-t-vg-accent rounded-full animate-spin" />
-            <span className="text-vg-text-muted text-sm">Loading preferences…</span>
+            <span className="text-vg-text-muted text-sm">{t('settings.loadingPrefs')}</span>
           </div>
         ) : pref ? (
           <div className="space-y-5">
-            {/* Toggle row */}
             <div className="flex items-center justify-between p-4 rounded-lg bg-white/[0.03] border border-white/5">
               <div className="flex items-center gap-4">
-                <div className={`w-3 h-3 rounded-full ${pref.email_alerts_enabled ? 'bg-vg-success animate-pulse' : 'bg-white/20'}`} />
+                <div
+                  className={`w-3 h-3 rounded-full ${pref.email_alerts_enabled ? 'bg-vg-success animate-pulse' : 'bg-white/20'}`}
+                />
                 <div>
                   <p className="text-white font-medium">
-                    {pref.email_alerts_enabled ? 'Alerts enabled' : 'Alerts disabled'}
+                    {pref.email_alerts_enabled ? t('settings.alertsEnabled') : t('settings.alertsDisabled')}
                   </p>
                   <p className="text-vg-text-muted text-sm mt-0.5">
-                    Sending to <span className="text-white/80">{pref.email}</span>
+                    {t('settings.sendingTo')} <span className="text-white/80">{pref.email}</span>
                   </p>
                 </div>
               </div>
 
-              {/* Toggle switch */}
               <button
                 type="button"
+                dir="ltr"
                 role="switch"
                 aria-checked={pref.email_alerts_enabled}
                 disabled={saving}
@@ -132,12 +190,7 @@ export default function Settings() {
               </button>
             </div>
 
-            {/* Info note */}
-            <p className="text-vg-text-muted text-xs leading-relaxed">
-              When enabled, you'll receive an email each time the VisionGuard pipeline
-              detects an event that matches your configured alert rules (e.g. violent
-              behavior, high-confidence actions). You can turn this off at any time.
-            </p>
+            <p className="text-vg-text-muted text-xs leading-relaxed">{t('settings.infoNote')}</p>
           </div>
         ) : null}
       </div>

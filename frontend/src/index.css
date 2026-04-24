@@ -1,28 +1,28 @@
 @import "tailwindcss";
 
-/* VisionGuard Dark Theme - Futuristic Security Dashboard */
+/* VisionGuard Dark Theme — Liquid Glass / Dark Navy + Sky Blue */
 @theme {
-  /* Color palette */
-  --color-vg-dark: #0a0e1a;
-  --color-vg-card: #111827;
-  --color-vg-sidebar: #1e293b;
-  --color-vg-accent: #3b82f6;
-  --color-vg-accent-light: #60a5fa;
+  /* Core palette — deep ocean navy base */
+  --color-vg-dark: #050c1a;
+  --color-vg-card: #0a1628;
+  --color-vg-sidebar: #0d1f3c;
+  --color-vg-accent: #0ea5e9;
+  --color-vg-accent-light: #38bdf8;
   --color-vg-text: #ffffff;
   --color-vg-text-muted: #94a3b8;
-  --color-vg-border: #1e293b;
-  --color-vg-glass: rgba(255, 255, 255, 0.05);
+  --color-vg-border: #1e3a5f;
+  --color-vg-glass: rgba(14, 165, 233, 0.05);
 
-  /* Auth pages — deep blue slate (aligned with Clerk theme) */
-  --color-auth-surface: #0a0f1c;
-  --color-auth-border: rgba(30, 58, 138, 0.45);
+  /* Auth pages — deep ocean (matches new palette) */
+  --color-auth-surface: #030912;
+  --color-auth-border: rgba(14, 165, 233, 0.3);
   --color-auth-muted: #64748b;
-  --color-auth-link: #5b8def;
+  --color-auth-link: #38bdf8;
 
   /* Severity colors */
   --color-vg-critical: #ef4444;
   --color-vg-warning: #f59e0b;
-  --color-vg-info: #3b82f6;
+  --color-vg-info: #0ea5e9;
   --color-vg-success: #22c55e;
 
   /* Font family */
@@ -55,79 +55,400 @@ body {
 /* Custom utility classes */
 @utility glass {
   background: var(--color-vg-glass);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(16px) saturate(160%);
+  -webkit-backdrop-filter: blur(16px) saturate(160%);
+  border: 1px solid rgba(56, 189, 248, 0.12);
+}
+
+/*
+ * iOS 26 Liquid Glass — near-transparent ice-lens surface.
+ * Sky-blue tint + strong blur + double specular rim (top highlight, bottom micro-glow).
+ */
+@utility liquid-glass {
+  background: rgba(14, 165, 233, 0.04);
+  backdrop-filter: url(#liquid-glass-filter) blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  border: 1px solid rgba(56, 189, 248, 0.18);
+  box-shadow:
+    inset 0 1.5px 0 rgba(255, 255, 255, 0.45),
+    inset 0 -1px 0 rgba(14, 165, 233, 0.1),
+    0 12px 32px -12px rgba(0, 0, 0, 0.5);
+}
+
+/*
+ * Panel variant — larger glass surface (sidebar, big cards).
+ * Deeper navy tint so text stays readable, no SVG displacement.
+ */
+@utility liquid-glass-panel {
+  background: rgba(5, 18, 40, 0.6);
+  backdrop-filter: blur(22px) saturate(160%);
+  -webkit-backdrop-filter: blur(22px) saturate(160%);
+  border: 1px solid rgba(56, 189, 248, 0.14);
+  box-shadow:
+    inset 0 1.5px 0 rgba(255, 255, 255, 0.2),
+    inset 0 -1px 0 rgba(14, 165, 233, 0.06),
+    0 10px 28px -14px rgba(0, 0, 0, 0.6);
+}
+
+/* Animated color blobs — dark navy + sky-blue palette, no purple */
+.liquid-blob {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(90px);
+  opacity: 0.5;
+  will-change: transform;
+}
+
+/* Deep dark blue — large anchor blob, top-left */
+.liquid-blob-1 {
+  top: -12%;
+  left: -12%;
+  width: 50vw;
+  height: 50vw;
+  background: #1e40af;
+  animation: blob-drift-1 28s ease-in-out infinite;
+}
+
+/* Sky blue — replaces old purple, top-right */
+.liquid-blob-2 {
+  top: 10%;
+  right: -10%;
+  width: 42vw;
+  height: 42vw;
+  background: #0ea5e9;
+  animation: blob-drift-2 32s ease-in-out infinite;
+}
+
+/* Light sky — bottom-center, brightest blob */
+.liquid-blob-3 {
+  bottom: -18%;
+  left: 22%;
+  width: 40vw;
+  height: 40vw;
+  background: #38bdf8;
+  opacity: 0.35;
+  animation: blob-drift-3 24s ease-in-out infinite;
+}
+
+/* Dark navy accent — subtle mid-right depth layer */
+.liquid-blob-4 {
+  top: 45%;
+  right: 5%;
+  width: 30vw;
+  height: 30vw;
+  background: #0c4a6e;
+  opacity: 0.6;
+  animation: blob-drift-4 36s ease-in-out infinite;
 }
 
 @utility glow-blue {
-  box-shadow: 0 0 20px rgba(59, 130, 246, 0.5), 0 0 40px rgba(59, 130, 246, 0.3);
+  box-shadow: 0 0 20px rgba(14, 165, 233, 0.55), 0 0 40px rgba(14, 165, 233, 0.3);
 }
 
 @utility glow-blue-sm {
-  box-shadow: 0 0 10px rgba(59, 130, 246, 0.4), 0 0 20px rgba(59, 130, 246, 0.2);
+  box-shadow: 0 0 10px rgba(14, 165, 233, 0.45), 0 0 20px rgba(14, 165, 233, 0.2);
 }
 
 @utility glow-blue-hover {
   &:hover {
-    box-shadow: 0 0 25px rgba(59, 130, 246, 0.6), 0 0 50px rgba(59, 130, 246, 0.4);
+    box-shadow: 0 0 25px rgba(14, 165, 233, 0.65), 0 0 50px rgba(14, 165, 233, 0.4);
   }
 }
 
 @utility text-glow {
-  text-shadow: 0 0 10px rgba(59, 130, 246, 0.5);
+  text-shadow: 0 0 10px rgba(14, 165, 233, 0.55);
 }
 
 /* Button styles */
+/* Sky-blue glass pill — colored glass with specular rim */
 .btn-primary {
-  background-color: var(--color-vg-accent);
+  background: linear-gradient(
+    135deg,
+    rgba(14, 165, 233, 0.75) 0%,
+    rgba(56, 189, 248, 0.65) 100%
+  );
+  backdrop-filter: blur(12px) saturate(160%);
+  -webkit-backdrop-filter: blur(12px) saturate(160%);
   color: white;
   padding: 0.75rem 1.5rem;
-  border-radius: 0.5rem;
+  border-radius: 9999px;
   font-weight: 500;
   transition: all 0.3s ease;
-  border: none;
+  border: 1px solid rgba(56, 189, 248, 0.4);
   cursor: pointer;
-  box-shadow: 0 0 15px rgba(59, 130, 246, 0.5);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.35),
+    0 0 18px rgba(14, 165, 233, 0.4),
+    0 4px 16px -4px rgba(0, 0, 0, 0.4);
+  display: inline-block;
+  text-decoration: none;
 }
 
 .btn-primary:hover:not(:disabled) {
-  background-color: var(--color-vg-accent-light);
-  box-shadow: 0 0 25px rgba(59, 130, 246, 0.7);
+  background: linear-gradient(
+    135deg,
+    rgba(56, 189, 248, 0.85) 0%,
+    rgba(14, 165, 233, 0.75) 100%
+  );
+  border-color: rgba(56, 189, 248, 0.6);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.45),
+    0 0 28px rgba(14, 165, 233, 0.55),
+    0 6px 20px -4px rgba(0, 0, 0, 0.4);
   transform: translateY(-1px);
 }
 
 .btn-primary:disabled {
-  opacity: 0.5;
+  opacity: 0.4;
   cursor: not-allowed;
 }
 
+/* Ghost button — transparent glass outline */
 .btn-ghost {
-  background: transparent;
-  color: var(--color-vg-accent);
+  background: rgba(14, 165, 233, 0.06);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  color: var(--color-vg-accent-light);
   padding: 0.75rem 1.5rem;
-  border-radius: 0.5rem;
+  border-radius: 9999px;
   font-weight: 500;
   transition: all 0.3s ease;
-  border: 1px solid var(--color-vg-accent);
+  border: 1px solid rgba(56, 189, 248, 0.3);
   cursor: pointer;
+  display: inline-block;
+  text-decoration: none;
 }
 
 .btn-ghost:hover {
-  background: rgba(59, 130, 246, 0.1);
-  box-shadow: 0 0 15px rgba(59, 130, 246, 0.3);
+  background: rgba(14, 165, 233, 0.14);
+  border-color: rgba(56, 189, 248, 0.5);
+  box-shadow: 0 0 18px rgba(14, 165, 233, 0.25);
 }
 
-/* Card styles */
+/* Spinning gradient border wrapper for demo button */
+.demo-btn-wrapper {
+  position: relative;
+  border-radius: 9999px;
+  padding: 2px;
+  overflow: hidden;
+}
+
+/* Rotating conic-gradient border — sky-blue palette */
+.demo-btn-wrapper::before {
+  content: '';
+  position: absolute;
+  inset: -100%;
+  background: conic-gradient(
+    from 0deg,
+    transparent 0deg,
+    #0c4a6e 60deg,
+    #0ea5e9 100deg,
+    #38bdf8 140deg,
+    #7dd3fc 180deg,
+    #38bdf8 220deg,
+    #0ea5e9 260deg,
+    #0c4a6e 300deg,
+    transparent 360deg
+  );
+  animation: demo-border-spin 3s linear infinite;
+  filter: blur(1px);
+}
+
+@keyframes demo-border-spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Inner demo button sits above the pseudo-elements */
+.btn-demo {
+  position: relative;
+  z-index: 1;
+  background: var(--color-vg-dark);
+  color: #38bdf8;
+  border-radius: 9999px;
+  font-weight: 500;
+  transition: all 0.3s ease;
+  cursor: pointer;
+  text-decoration: none;
+}
+
+.btn-demo:hover {
+  background: rgba(5, 12, 26, 0.85);
+  color: #7dd3fc;
+}
+
+/* Card styles — glass surface that floats over the wallpaper */
 .card {
-  background-color: var(--color-vg-card);
+  background: rgba(5, 12, 26, 0.45);
+  backdrop-filter: blur(18px) saturate(150%);
+  -webkit-backdrop-filter: blur(18px) saturate(150%);
   border-radius: 0.75rem;
-  border: 1px solid var(--color-vg-border);
+  border: 1px solid rgba(56, 189, 248, 0.14);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.1),
+    0 8px 24px -8px rgba(0, 0, 0, 0.45);
   transition: all 0.3s ease;
 }
 
 .card:hover {
-  border-color: rgba(59, 130, 246, 0.3);
+  border-color: rgba(56, 189, 248, 0.32);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.15),
+    0 12px 32px -10px rgba(0, 0, 0, 0.5),
+    0 0 20px -8px rgba(14, 165, 233, 0.2);
+}
+
+/* -------------------------------------------------------------------------- */
+/* VisionGuard /demo page — presentation layout (scoped .demo-* classes)      */
+/* -------------------------------------------------------------------------- */
+
+.demo-page {
+  padding-bottom: 1.5rem;
+}
+
+.demo-panel {
+  border-radius: 0.875rem;
+  border: 1px solid rgba(56, 189, 248, 0.1);
+  background: rgba(5, 14, 30, 0.65);
+  backdrop-filter: blur(20px) saturate(150%);
+  -webkit-backdrop-filter: blur(20px) saturate(150%);
+  padding: 1rem 1rem 1.125rem;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    0 20px 40px -20px rgba(0, 0, 0, 0.6);
+}
+
+.demo-panel--sidebar {
+  max-height: 720px;
+}
+
+@media (min-width: 1280px) {
+  .demo-panel--sidebar {
+    max-height: min(78vh, 820px);
+  }
+}
+
+.demo-panel--hero {
+  min-height: 0;
+}
+
+.demo-hero-frame {
+  box-shadow: inset 0 0 0 1px rgba(14, 165, 233, 0.08), 0 0 60px -20px rgba(14, 165, 233, 0.18);
+}
+
+.demo-scenario-card--idle {
+  border-color: rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.demo-scenario-card--idle:hover {
+  border-color: rgba(14, 165, 233, 0.28);
+  background: rgba(14, 165, 233, 0.06);
+}
+
+.demo-scenario-card--selected {
+  border-color: rgba(14, 165, 233, 0.55);
+  background: rgba(14, 165, 233, 0.1);
+  box-shadow: 0 0 22px -6px rgba(14, 165, 233, 0.35);
+}
+
+.demo-severity-badge {
+  font-size: 0.625rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  padding: 0.2rem 0.45rem;
+  border-radius: 0.25rem;
+}
+
+.demo-severity-badge--normal {
+  color: #7dd3fc;
+  background: rgba(14, 165, 233, 0.15);
+  border: 1px solid rgba(14, 165, 233, 0.25);
+}
+
+.demo-severity-badge--warning {
+  color: #fcd34d;
+  background: rgba(245, 158, 11, 0.12);
+  border: 1px solid rgba(245, 158, 11, 0.3);
+}
+
+.demo-severity-badge--critical {
+  color: #fecaca;
+  background: rgba(239, 68, 68, 0.12);
+  border: 1px solid rgba(239, 68, 68, 0.35);
+}
+
+.demo-analyze-overlay {
+  background: rgba(2, 6, 23, 0.72);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+}
+
+.demo-analyze-spinner {
+  animation: demo-spin 0.9s linear infinite;
+}
+
+@keyframes demo-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.demo-secondary-btn {
+  border: 1px solid rgba(148, 163, 184, 0.3);
+  color: #e2e8f0;
+  background: rgba(14, 165, 233, 0.04);
+  transition: border-color 0.2s ease, background 0.2s ease, color 0.2s ease;
+}
+
+.demo-secondary-btn:hover:not(:disabled) {
+  border-color: rgba(14, 165, 233, 0.45);
+  color: #fff;
+  background: rgba(14, 165, 233, 0.1);
+}
+
+.demo-complete-badge {
+  animation: fade-in 0.35s ease-out forwards;
+}
+
+.demo-summary-card {
+  box-shadow: 0 12px 30px -18px rgba(0, 0, 0, 0.5);
+}
+
+.demo-timeline-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(14, 165, 233, 0.35) transparent;
+}
+
+.demo-chat-section {
+  box-shadow: 0 24px 60px -24px rgba(0, 0, 0, 0.65);
+}
+
+.demo-chat-messages {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(14, 165, 233, 0.35) transparent;
+}
+
+.demo-chat-bubble-user {
+  background: linear-gradient(135deg, rgba(14, 165, 233, 0.5) 0%, rgba(12, 74, 110, 0.55) 100%);
+  border: 1px solid rgba(56, 189, 248, 0.35);
+  border-radius: 1rem 1rem 0.35rem 1rem;
+}
+
+.demo-chat-bubble-assistant {
+  background: rgba(15, 23, 42, 0.85);
+  border: 1px solid rgba(51, 65, 85, 0.65);
+  border-radius: 1rem 1rem 1rem 0.35rem;
+}
+
+.demo-chat-markdown strong {
+  color: #fff;
+  font-weight: 600;
 }
 
 /* Auth shell — sign-in / sign-up pages */
@@ -137,67 +458,63 @@ body {
   color: var(--color-vg-text);
 }
 
-/* Base layer: navy gradient + soft blue spotlight + subtle grid */
+/* Auth page background — deep ocean navy with sky-blue spotlight */
 .auth-page-bg {
   position: absolute;
   inset: 0;
   pointer-events: none;
   z-index: 0;
   background:
-    radial-gradient(ellipse 100% 80% at 50% -30%, rgba(37, 99, 235, 0.14), transparent 55%),
-    linear-gradient(165deg, #020617 0%, #0a0e1a 45%, #0c1428 100%);
+    radial-gradient(ellipse 100% 70% at 50% -20%, rgba(14, 165, 233, 0.18), transparent 60%),
+    radial-gradient(ellipse 60% 50% at 80% 70%, rgba(30, 64, 175, 0.15), transparent 55%),
+    linear-gradient(165deg, #020912 0%, #050c1a 45%, #061525 100%);
 }
 
 .auth-page-bg::before {
   content: '';
   position: absolute;
   inset: 0;
-  opacity: 0.35;
+  opacity: 0.3;
   background-image:
-    linear-gradient(rgba(30, 58, 138, 0.12) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(30, 58, 138, 0.12) 1px, transparent 1px);
+    linear-gradient(rgba(14, 165, 233, 0.1) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(14, 165, 233, 0.1) 1px, transparent 1px);
   background-size: 52px 52px;
   mask-image: radial-gradient(ellipse 75% 65% at 50% 35%, black 15%, transparent 72%);
 }
 
-/* Auth card — glass panel, indigo edge glow */
+/* Auth card — deep navy glass panel with sky-blue edge glow */
 .auth-card {
   position: relative;
-  background: linear-gradient(
-    155deg,
-    rgba(12, 18, 34, 0.92) 0%,
-    rgba(7, 11, 20, 0.88) 50%,
-    rgba(10, 15, 28, 0.95) 100%
-  );
+  background: rgba(5, 14, 30, 0.72);
   border: 1px solid var(--color-auth-border);
   border-radius: 1.125rem;
   padding: 2rem 1.625rem;
-  backdrop-filter: blur(20px) saturate(1.15);
-  -webkit-backdrop-filter: blur(20px) saturate(1.15);
+  backdrop-filter: blur(24px) saturate(160%);
+  -webkit-backdrop-filter: blur(24px) saturate(160%);
   box-shadow:
-    0 0 0 1px rgba(255, 255, 255, 0.03) inset,
-    0 25px 50px -12px rgba(0, 0, 0, 0.45),
-    0 0 40px -8px rgba(37, 99, 235, 0.12);
+    inset 0 1.5px 0 rgba(255, 255, 255, 0.12),
+    0 25px 50px -12px rgba(0, 0, 0, 0.5),
+    0 0 40px -8px rgba(14, 165, 233, 0.14);
   display: flex;
   justify-content: center;
 }
 
 .auth-card:hover {
-  border-color: rgba(59, 130, 246, 0.35);
+  border-color: rgba(56, 189, 248, 0.38);
   box-shadow:
-    0 0 0 1px rgba(255, 255, 255, 0.04) inset,
-    0 28px 56px -12px rgba(0, 0, 0, 0.5),
-    0 0 48px -6px rgba(37, 99, 235, 0.18);
+    inset 0 1.5px 0 rgba(255, 255, 255, 0.16),
+    0 28px 56px -12px rgba(0, 0, 0, 0.55),
+    0 0 48px -6px rgba(14, 165, 233, 0.22);
 }
 
 /*
- * Clerk footer: plain row under a line — same tones as labels + formFieldAction (Clerk may inline color).
+ * Clerk footer: plain row under a line — same tones as labels + formFieldAction.
  */
 .auth-card .cl-footer {
   color: #94a3b8 !important;
   background: transparent !important;
   border: none !important;
-  border-top: 1px solid rgba(30, 58, 138, 0.45) !important;
+  border-top: 1px solid rgba(14, 165, 233, 0.25) !important;
   border-radius: 0 !important;
   box-shadow: none !important;
 }
@@ -211,7 +528,7 @@ body {
 .auth-card .cl-footer a,
 .auth-card .cl-footer .cl-footerActionLink,
 .auth-card .cl-footer [class*='footerActionLink'] {
-  color: #3b82f6 !important;
+  color: #0ea5e9 !important;
   background: transparent !important;
   border: none !important;
   border-radius: 0 !important;
@@ -223,15 +540,15 @@ body {
 
 .auth-card .cl-footer a:hover,
 .auth-card .cl-footer .cl-footerActionLink:hover {
-  color: #60a5fa !important;
+  color: #38bdf8 !important;
 }
 
-/* Clerk UserButton popover — match Sidebar (vg-sidebar #1e293b, muted #94a3b8, accent #3b82f6) */
+/* Clerk UserButton popover — match Sidebar dark navy glass */
 .cl-userButtonPopoverCard {
-  background-color: #1e293b !important;
-  border: 1px solid rgba(51, 65, 85, 0.9) !important;
+  background-color: #0d1f3c !important;
+  border: 1px solid rgba(56, 189, 248, 0.15) !important;
   border-radius: 0.75rem !important;
-  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.55) !important;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.65) !important;
 }
 
 .cl-userPreview__userButton {
@@ -258,7 +575,7 @@ body {
 
 .cl-userButtonPopoverActionButtonIcon,
 .cl-userButtonPopoverActionButtonIconBox {
-  color: #3b82f6 !important;
+  color: #0ea5e9 !important;
 }
 
 .cl-userButtonPopoverFooter {
@@ -276,33 +593,107 @@ body {
   display: none !important;
 }
 
-/* Scrollbar styling */
+/* Scrollbar styling — subtle navy track, sky-blue thumb */
 ::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+  width: 6px;
+  height: 6px;
 }
 
 ::-webkit-scrollbar-track {
-  background: var(--color-vg-dark);
+  background: transparent;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: var(--color-vg-sidebar);
+  background: rgba(14, 165, 233, 0.25);
   border-radius: 4px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: var(--color-vg-accent);
+  background: rgba(56, 189, 248, 0.5);
 }
 
 /* Animation keyframes */
 @keyframes pulse-glow {
   0%, 100% {
-    box-shadow: 0 0 15px rgba(59, 130, 246, 0.5);
+    box-shadow: 0 0 15px rgba(14, 165, 233, 0.5);
   }
   50% {
-    box-shadow: 0 0 25px rgba(59, 130, 246, 0.8);
+    box-shadow: 0 0 28px rgba(14, 165, 233, 0.85);
   }
+}
+
+@keyframes blob-drift-1 {
+  0%, 100% {
+    transform: translate(0, 0);
+  }
+  50% {
+    transform: translate(15vw, 10vh);
+  }
+}
+
+@keyframes blob-drift-2 {
+  0%, 100% {
+    transform: translate(0, 0);
+  }
+  50% {
+    transform: translate(-12vw, 15vh);
+  }
+}
+
+@keyframes blob-drift-3 {
+  0%, 100% {
+    transform: translate(0, 0);
+  }
+  50% {
+    transform: translate(10vw, -12vh);
+  }
+}
+
+@keyframes blob-drift-4 {
+  0%, 100% {
+    transform: translate(0, 0);
+  }
+  33% {
+    transform: translate(-8vw, -8vh);
+  }
+  66% {
+    transform: translate(5vw, 10vh);
+  }
+}
+
+/* Landing: logo box + accent title — sky-blue pulse glow */
+@keyframes vg-landing-icon-pulse {
+  0%, 100% {
+    box-shadow:
+      0 0 20px rgba(14, 165, 233, 0.6),
+      0 0 40px rgba(14, 165, 233, 0.32);
+  }
+  50% {
+    box-shadow:
+      0 0 36px rgba(14, 165, 233, 0.95),
+      0 0 64px rgba(56, 189, 248, 0.52);
+  }
+}
+
+@keyframes vg-landing-text-pulse {
+  0%, 100% {
+    text-shadow:
+      0 0 14px rgba(14, 165, 233, 0.6),
+      0 0 30px rgba(14, 165, 233, 0.38);
+  }
+  50% {
+    text-shadow:
+      0 0 28px rgba(14, 165, 233, 0.98),
+      0 0 54px rgba(56, 189, 248, 0.55);
+  }
+}
+
+.animate-vg-landing-icon-pulse {
+  animation: vg-landing-icon-pulse 2s ease-in-out infinite;
+}
+
+.animate-vg-landing-text-pulse {
+  animation: vg-landing-text-pulse 2s ease-in-out infinite;
 }
 
 @keyframes fade-in {

@@ -1,32 +1,29 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { getApiBaseUrl, useAuthedApi } from '../lib/api';
 import { mockAlerts } from '../data/mockAlerts';
+import { useI18n } from '../i18n/useI18n';
 
-const severityConfig = {
+const severityStyle = {
   critical: {
     bg: 'bg-vg-critical/10',
     border: 'border-vg-critical/30',
     badge: 'bg-vg-critical text-white',
     icon: '🚨',
-    label: 'Critical',
   },
   warning: {
     bg: 'bg-vg-warning/10',
     border: 'border-vg-warning/30',
     badge: 'bg-vg-warning text-black',
     icon: '⚠️',
-    label: 'Warning',
   },
   info: {
     bg: 'bg-vg-info/10',
     border: 'border-vg-info/30',
     badge: 'bg-vg-info text-white',
     icon: 'ℹ️',
-    label: 'Info',
   },
 };
 
-/** Map backend ActionAlert.severity to UI card type (backend uses high/medium/low etc.) */
 function normalizeSeverity(severity) {
   const s = (severity || '').toLowerCase();
   if (s === 'critical' || s === 'high') return 'critical';
@@ -34,8 +31,7 @@ function normalizeSeverity(severity) {
   return 'info';
 }
 
-/** Map GET /runs/{run_id}/alerts item + parent run metadata into AlertCard props */
-function mapActionAlert(apiAlert, run) {
+function mapActionAlert(apiAlert, run, t) {
   const startedMs = run?.started_at ? new Date(run.started_at).getTime() : Date.now();
   const ms = startedMs + (apiAlert.timestamp_s ?? 0) * 1000;
   const score = apiAlert.action_score ?? 0;
@@ -44,15 +40,16 @@ function mapActionAlert(apiAlert, run) {
   return {
     id: `api-${apiAlert.id}`,
     type: normalizeSeverity(apiAlert.severity),
-    title: apiAlert.rule_name || 'Alert',
+    title: apiAlert.rule_name || t('alerts.defaultTitle'),
     description: apiAlert.message,
-    camera: run?.run_name?.trim() || `Run ${String(apiAlert.run_id).slice(0, 8)}…`,
+    camera:
+      run?.run_name?.trim() ||
+      t('alerts.runPrefix', { id: String(apiAlert.run_id).slice(0, 8) }),
     timestamp: new Date(ms).toISOString(),
     confidence,
   };
 }
 
-/** Same dismiss control as alert cards (X, top-right) */
 function DismissIconButton({ onDismiss, ariaLabel }) {
   return (
     <button
@@ -61,7 +58,7 @@ function DismissIconButton({ onDismiss, ariaLabel }) {
         e.stopPropagation();
         onDismiss?.();
       }}
-      className="absolute top-3 right-3 p-1.5 rounded-lg text-vg-text-muted hover:text-white hover:bg-white/10 transition-colors"
+      className="absolute top-3 end-3 p-1.5 rounded-lg text-vg-text-muted hover:text-white hover:bg-white/10 transition-colors"
       aria-label={ariaLabel}
     >
       <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
@@ -72,12 +69,14 @@ function DismissIconButton({ onDismiss, ariaLabel }) {
 }
 
 export default function Alerts() {
+  const { t, locale } = useI18n();
   const [alerts, setAlerts] = useState([]);
   const [loading, setLoading] = useState(true);
-  /** 'api' | 'mock' — mock only when fetch fails (no global GET /alerts exists yet; we use /runs + /runs/{id}/alerts) */
   const [source, setSource] = useState('api');
   const [offlineBannerDismissed, setOfflineBannerDismissed] = useState(false);
   const apiFetch = useAuthedApi();
+  const tRef = useRef(t);
+  tRef.current = t;
 
   useEffect(() => {
     let cancelled = false;
@@ -98,13 +97,18 @@ export default function Alerts() {
         const raw = await apiFetch(`/runs/${run.id}/alerts?limit=500`);
         if (cancelled) return;
 
-        const mapped = raw.map((a) => mapActionAlert(a, run));
+        const mapped = raw.map((a) => mapActionAlert(a, run, (k, p) => tRef.current(k, p)));
         mapped.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
         setAlerts(mapped);
         setSource('api');
       } catch {
         if (!cancelled) {
-          setAlerts(mockAlerts);
+          setAlerts(
+            mockAlerts.map((a) => ({
+              ...a,
+              camera: tRef.current('alerts.latestRun'),
+            }))
+          );
           setSource('mock');
         }
       } finally {
@@ -118,75 +122,69 @@ export default function Alerts() {
     };
   }, [apiFetch]);
 
+  useEffect(() => {
+    if (source !== 'mock') return;
+    setAlerts((prev) => prev.map((a) => ({ ...a, camera: t('alerts.latestRun') })));
+  }, [locale, source, t]);
+
   const criticalCount = alerts.filter((a) => a.type === 'critical').length;
   const warningCount = alerts.filter((a) => a.type === 'warning').length;
 
   return (
     <div className="space-y-6">
-      {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-white">Security Alerts</h1>
-          <p className="text-vg-text-muted mt-1">Monitor and respond to detected events</p>
+          <h1 className="text-2xl font-bold text-white">{t('alerts.title')}</h1>
+          <p className="text-vg-text-muted mt-1">{t('alerts.subtitle')}</p>
         </div>
         <div className="flex items-center gap-3">
           <span className="px-3 py-1.5 rounded-full bg-vg-critical/20 text-vg-critical text-sm font-medium">
-            {criticalCount} Critical
+            {t('alerts.criticalBadge', { count: String(criticalCount) })}
           </span>
           <span className="px-3 py-1.5 rounded-full bg-vg-warning/20 text-vg-warning text-sm font-medium">
-            {warningCount} Warnings
+            {t('alerts.warningsBadge', { count: String(warningCount) })}
           </span>
         </div>
       </div>
 
       {source === 'mock' && !offlineBannerDismissed && (
-        <div className="relative rounded-lg border border-vg-warning/40 bg-vg-warning/10 px-4 py-3 pr-11 sm:pr-12 text-sm text-vg-text-muted">
+        <div className="relative rounded-lg border border-vg-warning/40 bg-vg-warning/10 px-4 py-3 pe-11 sm:pe-12 text-sm text-vg-text-muted">
           <DismissIconButton
             onDismiss={() => setOfflineBannerDismissed(true)}
-            ariaLabel="Dismiss offline notice"
+            ariaLabel={t('alerts.dismissOffline')}
           />
-          Could not reach the API at {getApiBaseUrl()}. Showing offline demo alerts until the backend is running.
+          {t('alerts.offlineBanner', { url: getApiBaseUrl() })}
         </div>
       )}
 
       {source === 'api' && !loading && alerts.length === 0 && (
-        <div className="card p-8 text-center text-vg-text-muted">
-          No alerts yet for the latest video run. Process a video and persist alerts to the database to see them here.
-        </div>
+        <div className="card p-8 text-center text-vg-text-muted">{t('alerts.emptyState')}</div>
       )}
 
-      {/* Filter tabs */}
-      <div className="flex gap-2 border-b border-white/10 pb-4">
-        <FilterButton active>All Alerts</FilterButton>
-        <FilterButton>Critical</FilterButton>
-        <FilterButton>Warnings</FilterButton>
-        <FilterButton>Info</FilterButton>
+      <div className="flex gap-2 border-b border-white/10 pb-4 flex-wrap">
+        <FilterButton active>{t('alerts.filterAll')}</FilterButton>
+        <FilterButton>{t('alerts.filterCritical')}</FilterButton>
+        <FilterButton>{t('alerts.filterWarnings')}</FilterButton>
+        <FilterButton>{t('alerts.filterInfo')}</FilterButton>
       </div>
 
-      {/* Alerts list */}
       <div className="space-y-3">
-        {loading && (
-          <div className="text-vg-text-muted text-sm animate-pulse">Loading alerts…</div>
-        )}
+        {loading && <div className="text-vg-text-muted text-sm animate-pulse">{t('alerts.loading')}</div>}
         {!loading &&
           alerts.map((alert, index) => (
             <AlertCard
               key={alert.id}
               alert={alert}
               style={{ animationDelay: `${index * 50}ms` }}
-              onDismiss={() =>
-                setAlerts((prev) => prev.filter((a) => a.id !== alert.id))
-              }
+              onDismiss={() => setAlerts((prev) => prev.filter((a) => a.id !== alert.id))}
             />
           ))}
       </div>
 
-      {/* Load more */}
       <div className="text-center pt-4">
         <button type="button" className="btn-ghost text-sm px-6 py-2" disabled>
-          Load More Alerts
+          {t('alerts.loadMore')}
         </button>
-        {/* TODO: backend — add pagination or GET /alerts across runs when implemented */}
       </div>
     </div>
   );
@@ -211,34 +209,34 @@ function FilterButton({ children, active = false }) {
 }
 
 function AlertCard({ alert, style, onDismiss }) {
-  const config = severityConfig[alert.type];
+  const { t } = useI18n();
+  const config = severityStyle[alert.type];
+  const severityLabel = t(`alerts.severity.${alert.type}`);
   const timestamp = new Date(alert.timestamp);
 
   return (
     <div
       className={`
-        relative card p-4 pr-11 sm:pr-12 cursor-pointer animate-fade-in
+        relative card p-4 pe-11 sm:pe-12 cursor-pointer animate-fade-in
         ${config.bg} ${config.border} border
         hover:border-opacity-60 transition-all duration-200
       `}
       style={style}
     >
-      <DismissIconButton onDismiss={onDismiss} ariaLabel="Dismiss alert" />
+      <DismissIconButton onDismiss={onDismiss} ariaLabel={t('alerts.dismissAlert')} />
       <div className="flex flex-col sm:flex-row sm:items-start gap-4">
         <div className="flex gap-4 flex-1">
           <div className="text-2xl flex-shrink-0">{config.icon}</div>
 
           <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-3 mb-1">
+            <div className="flex items-center gap-3 mb-1 flex-wrap">
               <h3 className="text-white font-semibold truncate">{alert.title}</h3>
-              <span className={`px-2 py-0.5 rounded text-xs font-medium ${config.badge}`}>
-                {config.label}
-              </span>
+              <span className={`px-2 py-0.5 rounded text-xs font-medium ${config.badge}`}>{severityLabel}</span>
             </div>
             <p className="text-vg-text-muted text-sm mb-2 line-clamp-2">{alert.description}</p>
-            <div className="flex items-center gap-4 text-xs text-vg-text-muted">
+            <div className="flex items-center gap-4 text-xs text-vg-text-muted flex-wrap">
               <span className="flex items-center gap-1">
-                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg className="w-3.5 h-3.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path
                     strokeLinecap="round"
                     strokeLinejoin="round"
@@ -249,7 +247,7 @@ function AlertCard({ alert, style, onDismiss }) {
                 {alert.camera}
               </span>
               <span className="flex items-center gap-1">
-                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg className="w-3.5 h-3.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path
                     strokeLinecap="round"
                     strokeLinejoin="round"
@@ -257,13 +255,13 @@ function AlertCard({ alert, style, onDismiss }) {
                     d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
                   />
                 </svg>
-                {alert.confidence}% confidence
+                {t('alerts.confidence', { n: String(alert.confidence) })}
               </span>
             </div>
           </div>
         </div>
 
-        <div className="text-right flex-shrink-0">
+        <div className="text-end flex-shrink-0">
           <p className="text-white text-sm font-medium">
             {timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
           </p>

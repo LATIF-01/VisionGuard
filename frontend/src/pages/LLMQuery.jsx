@@ -1,14 +1,15 @@
 import { useState, useRef, useEffect } from 'react';
 import { useAuthedApi } from '../lib/api';
 import { mockChatHistory } from '../data/mockChat';
+import { useI18n } from '../i18n/useI18n';
 
 export default function LLMQuery() {
+  const { t, locale } = useI18n();
   const [messages, setMessages] = useState([]);
   const [inputValue, setInputValue] = useState('');
   const [runId, setRunId] = useState(null);
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
-  /** When true, initial chat uses mock data because /runs or /runs/:id/context failed */
   const [useMockFallback, setUseMockFallback] = useState(false);
   const chatEndRef = useRef(null);
   const nextId = useRef(1);
@@ -33,8 +34,7 @@ export default function LLMQuery() {
             {
               id: 'no-run',
               role: 'assistant',
-              content:
-                'No video runs found in the database. Ingest and process a video via the VisionGuard pipeline, then you can ask questions about that run.',
+              content: t('llm.noRunMsg'),
               timestamp: new Date().toISOString(),
             },
           ]);
@@ -52,7 +52,10 @@ export default function LLMQuery() {
           {
             id: 'ctx-summary',
             role: 'assistant',
-            content: `**VisionGuard LLM** — connected to run \`${id.slice(0, 8)}…\`\n\n${ctx.summary}`,
+            content: t('llm.connectedIntro', {
+              runId: `${id.slice(0, 8)}…`,
+              summary: ctx.summary,
+            }),
             timestamp: new Date().toISOString(),
           },
         ]);
@@ -72,7 +75,7 @@ export default function LLMQuery() {
     return () => {
       cancelled = true;
     };
-  }, [apiFetch]);
+  }, [apiFetch, locale, t]);
 
   const handleSend = async () => {
     if (!inputValue.trim() || sending) return;
@@ -94,10 +97,7 @@ export default function LLMQuery() {
         {
           id: `a-${nextId.current++}`,
           role: 'assistant',
-          content:
-            useMockFallback
-              ? 'Demo mode: connect the API (see .env VITE_API_BASE_URL) and ensure a video run exists to use POST /runs/{run_id}/llm.'
-              : 'No run selected. Create a video run in the backend first.',
+          content: useMockFallback ? t('llm.demoReply') : t('llm.noRunReply'),
           timestamp: new Date().toISOString(),
         },
       ]);
@@ -126,7 +126,7 @@ export default function LLMQuery() {
         {
           id: `a-${nextId.current++}`,
           role: 'assistant',
-          content: `Request failed: ${e.message}`,
+          content: t('llm.requestFailed', { message: e.message }),
           timestamp: new Date().toISOString(),
         },
       ]);
@@ -140,6 +140,10 @@ export default function LLMQuery() {
       e.preventDefault();
       handleSend();
     }
+  };
+
+  const applySuggestion = (text) => {
+    setInputValue(text);
   };
 
   return (
@@ -157,11 +161,13 @@ export default function LLMQuery() {
             </svg>
           </div>
           <div>
-            <h1 className="text-xl font-bold text-white">VisionGuard LLM</h1>
+            <h1 className="text-xl font-bold text-white">{t('llm.title')}</h1>
             <p className="text-vg-text-muted text-sm">
-              Natural language event queries
+              {t('llm.subtitle')}
               {runId && !useMockFallback && (
-                <span className="ml-2 text-vg-accent/80">· Run {runId.slice(0, 8)}…</span>
+                <span className="ms-2 text-vg-accent/80">
+                  {t('llm.runHint', { runId: `${runId.slice(0, 8)}…` })}
+                </span>
               )}
             </p>
           </div>
@@ -170,8 +176,7 @@ export default function LLMQuery() {
 
       {useMockFallback && (
         <div className="mt-3 rounded-lg border border-vg-warning/40 bg-vg-warning/10 px-4 py-2 text-xs text-vg-text-muted">
-          API unavailable — showing demo conversation. Set VITE_API_BASE_URL and start FastAPI to use live LLM (
-          POST /runs/&lt;run_id&gt;/llm).
+          {t('llm.mockBanner')}
         </div>
       )}
 
@@ -179,7 +184,7 @@ export default function LLMQuery() {
         <div className="text-center py-6">
           <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-vg-card border border-white/10 text-sm text-vg-text-muted">
             <span className="w-2 h-2 rounded-full bg-vg-success animate-pulse" />
-            {loading ? 'Connecting…' : 'VisionGuard LLM is ready'}
+            {loading ? t('llm.connecting') : t('llm.ready')}
           </div>
         </div>
 
@@ -192,10 +197,10 @@ export default function LLMQuery() {
 
       <div className="flex-shrink-0 py-3 border-t border-white/10">
         <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
-          <SuggestionChip>Show recent alerts</SuggestionChip>
-          <SuggestionChip>Activity in parking lot</SuggestionChip>
-          <SuggestionChip>Summarize today&apos;s events</SuggestionChip>
-          <SuggestionChip>Any unauthorized access?</SuggestionChip>
+          <SuggestionChip onPick={() => applySuggestion(t('llm.suggestion1'))}>{t('llm.suggestion1')}</SuggestionChip>
+          <SuggestionChip onPick={() => applySuggestion(t('llm.suggestion2'))}>{t('llm.suggestion2')}</SuggestionChip>
+          <SuggestionChip onPick={() => applySuggestion(t('llm.suggestion3'))}>{t('llm.suggestion3')}</SuggestionChip>
+          <SuggestionChip onPick={() => applySuggestion(t('llm.suggestion4'))}>{t('llm.suggestion4')}</SuggestionChip>
         </div>
       </div>
 
@@ -206,10 +211,10 @@ export default function LLMQuery() {
               value={inputValue}
               onChange={(e) => setInputValue(e.target.value)}
               onKeyDown={handleKeyDown}
-              placeholder="Ask VisionGuard about events..."
+              placeholder={t('llm.placeholder')}
               rows={1}
               disabled={sending}
-              className="w-full px-4 py-3 pr-12 rounded-xl bg-vg-card border border-white/10 
+              className="w-full px-4 py-3 pe-12 rounded-xl bg-vg-card border border-white/10 
                 text-white placeholder-vg-text-muted resize-none
                 focus:outline-none focus:border-vg-accent/50 focus:ring-1 focus:ring-vg-accent/30
                 transition-all disabled:opacity-50"
@@ -233,15 +238,14 @@ export default function LLMQuery() {
             )}
           </button>
         </div>
-        <p className="text-center text-xs text-vg-text-muted mt-3">
-          Uses POST /runs/&lt;run_id&gt;/llm when the API is available
-        </p>
+        <p className="text-center text-xs text-vg-text-muted mt-3">{t('llm.footerNote')}</p>
       </div>
     </div>
   );
 }
 
 function ChatMessage({ message }) {
+  const { t } = useI18n();
   const isUser = message.role === 'user';
   const timestamp = new Date(message.timestamp);
 
@@ -254,7 +258,7 @@ function ChatMessage({ message }) {
               <span className="text-vg-accent text-xs font-bold">VG</span>
             </div>
           )}
-          <span className="text-xs text-vg-text-muted">{isUser ? 'You' : 'VisionGuard LLM'}</span>
+          <span className="text-xs text-vg-text-muted">{isUser ? t('llm.you') : t('llm.assistant')}</span>
           <span className="text-xs text-vg-text-muted/60">
             {timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
           </span>
@@ -277,10 +281,11 @@ function ChatMessage({ message }) {
   );
 }
 
-function SuggestionChip({ children }) {
+function SuggestionChip({ children, onPick }) {
   return (
     <button
       type="button"
+      onClick={onPick}
       className="flex-shrink-0 px-4 py-2 rounded-full bg-vg-card border border-white/10 
       text-sm text-vg-text-muted hover:text-white hover:border-vg-accent/30 
       transition-all whitespace-nowrap"
