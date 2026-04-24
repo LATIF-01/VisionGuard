@@ -52,12 +52,12 @@ def parse_args() -> argparse.Namespace:
 	parser.add_argument(
 		"--action-model",
 		default="x3d_l",
-		choices=["x3d_xs", "x3d_s", "x3d_m", "x3d_l"],
-		help="Action model: x3d_xs (fastest) to x3d_l (most accurate). All from Kinetics-400.",
+		choices=["x3d_xs", "x3d_s", "x3d_m", "x3d_l", "x3d_custom"],
+		help="Action model: x3d_xs/x3d_s/x3d_m/x3d_l (Kinetics-400) or x3d_custom (weights/X3D.pth).",
 	)
 	parser.add_argument(
 		"--action-label-map",
-		default="config/kinetics_400_labels.txt",
+		default="config/custom_action_labels.txt",
 		help="Path to action class labels (one label per line)",
 	)
 	parser.add_argument(
