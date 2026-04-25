@@ -12,10 +12,17 @@ import DemoPlayer from '../components/demo/DemoPlayer';
 import DemoSummaryCard from '../components/demo/DemoSummaryCard';
 import DemoTimeline from '../components/demo/DemoTimeline';
 import DemoChatPanel from '../components/demo/DemoChatPanel';
+import { countTimelineEventsUnlocked, parseMmSsToSeconds } from '../utils/demoTime';
 
-const ANALYZE_STEP_MS = 430;
-const ANALYZE_FINISH_MS = 2400;
-const EVENT_REVEAL_MS = 240;
+/** Total time the "analyze" overlay stays visible after clicking "Analyze video" */
+const ANALYZE_TOTAL_MS = 6000;
+// Space step labels across the full duration (first step shows at t=0)
+const ANALYZE_STEP_MS = Math.max(200, Math.floor(ANALYZE_TOTAL_MS / DEMO_ANALYZE_STEP_KEYS.length));
+const ANALYZE_FINISH_MS = ANALYZE_TOTAL_MS;
+/** Same "glass" card shows user image after the step list, then dismisses */
+const ANALYZE_COMPLETE_IMAGE_MS = 2000;
+/** Seconds after an event's timestamp in the video before its row appears in the timeline */
+const TIMELINE_EVENT_REVEAL_LAG_SEC = 2;
 
 let chatIdSeq = 0;
 function nextChatId() {
@@ -32,10 +39,14 @@ export default function Demo() {
   const [revealedEventCount, setRevealedEventCount] = useState(0);
   const [chatMessages, setChatMessages] = useState(() => buildInitialChatMessages(DEMO_SCENARIOS[0]));
   const [chatInput, setChatInput] = useState('');
-  const [demoVideoPlaybackReady, setDemoVideoPlaybackReady] = useState(false);
+  const [activeTimelineEventId, setActiveTimelineEventId] = useState(null);
+  /** Executive summary stays skeleton until analyzed video is watched to the end once */
+  const [summaryUnlocked, setSummaryUnlocked] = useState(false);
   const analyzeTimersRef = useRef([]);
-  const revealTimersRef = useRef([]);
+  const analyzeCompleteImageTimerRef = useRef(null);
   const chatReplyTimerRef = useRef(null);
+  const playerRef = useRef(null);
+  const [showAnalyzeCompleteImage, setShowAnalyzeCompleteImage] = useState(false);
 
   const scenario = useMemo(() => getDemoScenarioById(selectedId), [selectedId]);
 
@@ -75,9 +86,12 @@ export default function Demo() {
     analyzeTimersRef.current = [];
   }, []);
 
-  const clearRevealTimers = useCallback(() => {
-    revealTimersRef.current.forEach((id) => clearTimeout(id));
-    revealTimersRef.current = [];
+  const clearAnalyzeCompleteImage = useCallback(() => {
+    if (analyzeCompleteImageTimerRef.current) {
+      clearTimeout(analyzeCompleteImageTimerRef.current);
+      analyzeCompleteImageTimerRef.current = null;
+    }
+    setShowAnalyzeCompleteImage(false);
   }, []);
 
   const clearChatReplyTimer = useCallback(() => {
@@ -88,21 +102,27 @@ export default function Demo() {
   // One place to stop timers and return to the pre-analysis UI state.
   const resetAnalysisState = useCallback(() => {
     clearAnalyzeTimers();
-    clearRevealTimers();
+    clearAnalyzeCompleteImage();
     clearChatReplyTimer();
     setIsAnalyzing(false);
     setIsAnalyzed(false);
     setAnalyzeStepIndex(0);
     setRevealedEventCount(0);
-  }, [clearAnalyzeTimers, clearRevealTimers, clearChatReplyTimer]);
+    setActiveTimelineEventId(null);
+    setSummaryUnlocked(false);
+  }, [clearAnalyzeCompleteImage, clearAnalyzeTimers, clearChatReplyTimer]);
+
+  useEffect(() => {
+    if (!isAnalyzed) setSummaryUnlocked(false);
+  }, [isAnalyzed]);
 
   useEffect(
     () => () => {
       clearAnalyzeTimers();
-      clearRevealTimers();
+      clearAnalyzeCompleteImage();
       clearChatReplyTimer();
     },
-    [clearAnalyzeTimers, clearRevealTimers, clearChatReplyTimer]
+    [clearAnalyzeCompleteImage, clearAnalyzeTimers, clearChatReplyTimer]
   );
 
   useEffect(() => {
@@ -117,7 +137,6 @@ export default function Demo() {
     });
 
     const finishId = setTimeout(() => {
-      clearRevealTimers();
       setIsAnalyzing(false);
       setIsAnalyzed(true);
       setAnalyzeStepIndex(DEMO_ANALYZE_STEP_KEYS.length - 1);
@@ -131,22 +150,30 @@ export default function Demo() {
         },
       ]);
       clearAnalyzeTimers();
+      clearAnalyzeCompleteImage();
+      setShowAnalyzeCompleteImage(true);
+      analyzeCompleteImageTimerRef.current = setTimeout(() => {
+        setShowAnalyzeCompleteImage(false);
+        analyzeCompleteImageTimerRef.current = null;
+      }, ANALYZE_COMPLETE_IMAGE_MS);
     }, ANALYZE_FINISH_MS);
     analyzeTimersRef.current.push(finishId);
 
     return () => clearAnalyzeTimers();
-  }, [isAnalyzing, clearAnalyzeTimers, clearRevealTimers, t]);
+  }, [isAnalyzing, clearAnalyzeCompleteImage, clearAnalyzeTimers, t]);
 
-  useEffect(() => {
-    if (!isAnalyzed || isAnalyzing || !scenario) return undefined;
-    clearRevealTimers();
-    // Reveal events in sequence to simulate timeline generation.
-    scenario.events.forEach((_, i) => {
-      const tid = setTimeout(() => setRevealedEventCount(i + 1), (i + 1) * EVENT_REVEAL_MS);
-      revealTimersRef.current.push(tid);
-    });
-    return () => clearRevealTimers();
-  }, [isAnalyzed, isAnalyzing, scenario, clearRevealTimers]);
+  const handlePlaybackReachedEnd = useCallback(() => {
+    setSummaryUnlocked(true);
+  }, []);
+
+  const handlePlaybackTime = useCallback(
+    (t) => {
+      if (!isAnalyzed || !scenario) return;
+      const next = countTimelineEventsUnlocked(scenario.events, t, TIMELINE_EVENT_REVEAL_LAG_SEC);
+      setRevealedEventCount((c) => Math.max(c, next));
+    },
+    [isAnalyzed, scenario]
+  );
 
   const handleSelectScenario = useCallback((id) => {
     resetAnalysisState();
@@ -197,6 +224,20 @@ export default function Demo() {
     [appendAssistant, isAnalyzed, scenario, clearChatReplyTimer]
   );
 
+  const handleTimelineEventClick = useCallback(
+    (ev) => {
+      if (!isAnalyzed) return;
+      const timeStr = ev.time ?? ev.timeLabel ?? '';
+      const sec = parseMmSsToSeconds(timeStr);
+      if (!Number.isFinite(sec)) return;
+      const ctrl = playerRef.current;
+      ctrl?.seekToSeconds?.(sec);
+      ctrl?.play?.();
+      setActiveTimelineEventId(ev.id);
+    },
+    [isAnalyzed]
+  );
+
   if (!scenario) {
     return <div className="text-white p-6">{t('common.loading')}</div>;
   }
@@ -215,16 +256,21 @@ export default function Demo() {
         <div className="xl:col-span-3 order-2 xl:order-1 flex flex-col h-full min-h-0 max-h-[720px] xl:max-h-none">
           <DemoTimeline
             heading={t('demo.timelineHeading')}
+            hint={t('demo.timelineJumpHint')}
             events={scenario.events}
             isReady={isAnalyzed}
             visibleCount={revealedEventCount}
             skeletonLabel={t('demo.awaitingAnalysis')}
-            animateSkeleton={demoVideoPlaybackReady}
+            // Static placeholders until analysis (no shimmer while waiting on raw video).
+            animateSkeleton={false}
+            activeEventId={activeTimelineEventId}
+            onEventClick={handleTimelineEventClick}
           />
         </div>
 
         <div className="xl:col-span-6 order-1 xl:order-2 min-h-0 flex flex-col">
           <DemoPlayer
+            ref={playerRef}
             activeScenarioLabel={t('demo.activeScenario')}
             title={scenario.title}
             rawVideoSrc={scenario.rawVideoUrl}
@@ -242,8 +288,11 @@ export default function Demo() {
             completeLabel={t('demo.analysisComplete')}
             noSignalLabel={t('demo.noSignal')}
             videoNotSupportedLabel={t('dashboard.videoNotSupported')}
-            onVideoPlaybackReadyChange={setDemoVideoPlaybackReady}
+            onPlaybackTimeUpdate={handlePlaybackTime}
+            onPlaybackReachedEnd={handlePlaybackReachedEnd}
             videoStableKey={`${selectedId}-${isAnalyzed}`}
+            showAnalyzeCompleteImage={showAnalyzeCompleteImage}
+            analyzeCompleteImageAlt={t('demo.analyzeCompleteFlash')}
           />
         </div>
 
@@ -254,9 +303,11 @@ export default function Demo() {
               summary={scenario.summary}
               metrics={scenario.metrics}
               metricLabels={metricLabels}
-              isReady={isAnalyzed}
-              skeletonLabel={t('demo.awaitingAnalysis')}
-              animateSkeleton={demoVideoPlaybackReady}
+              isReady={isAnalyzed && summaryUnlocked}
+              skeletonLabel={
+                isAnalyzed && !summaryUnlocked ? t('demo.summaryWatchToEnd') : t('demo.awaitingAnalysis')
+              }
+              animateSkeleton={false}
             />
           </div>
           <div className="min-h-0 flex-1 flex flex-col">
@@ -288,7 +339,7 @@ export default function Demo() {
         isEnabled={isAnalyzed}
         lockedMessage={t('demo.chatLockedMessage')}
         skeletonLabel={t('demo.awaitingAnalysis')}
-        animateSkeleton={demoVideoPlaybackReady}
+        animateSkeleton={false}
       />
     </div>
   );

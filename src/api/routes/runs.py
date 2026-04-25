@@ -1,7 +1,7 @@
 from collections import Counter
 from typing import Any, List, Optional
 
-from fastapi import APIRouter, Depends, Query, HTTPException, Body
+from fastapi import APIRouter, Body, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
 from src.api.schemas import (
@@ -13,7 +13,7 @@ from src.api.schemas import (
     VideoRunOut,
 )
 from src.database.models import ActionAlert, EventSegment, VideoRun
-from src.llm.llm_service import ask_llm
+from src.llm.llm_service import LLMNotConfiguredError, ask_llm
 from src.api.deps import get_db
 from src.api.auth import get_current_user
 
@@ -183,5 +183,11 @@ def ask_run_llm(
     _user: dict = Depends(get_current_user),
 ):
     context = _build_run_context(db, run_id, max_segments=max_segments, max_alerts=max_alerts)
-    answer = ask_llm(context, question)
+    try:
+        answer = ask_llm(context, question)
+    except LLMNotConfiguredError as exc:
+        raise HTTPException(
+            status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=str(exc),
+        ) from exc
     return {"answer": answer}

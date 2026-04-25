@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react';
 import DemoAnalyzeOverlay from './DemoAnalyzeOverlay';
 
 /** Isolated video + error state remounts when `src` changes (no effect-based reset). */
@@ -58,32 +58,64 @@ function VideoSurface({ src, isAnalyzing, videoRef, noSignalLabel, videoNotSuppo
 }
 
 /**
+ * Imperative controls for the demo hero video (timeline jump-to, etc.).
+ * @typedef {{ seekToSeconds: (seconds: number) => void; play: () => void }} DemoPlayerHandle
+ */
+
+/**
  * Hero video region with title, optional video, analyze/reset actions, and analyze overlay.
  */
-export default function DemoPlayer({
-  title,
-  rawVideoSrc,
-  analyzedVideoSrc,
-  isAnalyzing,
-  isAnalyzed,
-  analyzeStepLabels,
-  activeAnalyzeStepIndex,
-  onAnalyze,
-  onReset,
-  onReplay,
-  analyzeLabel,
-  resetLabel,
-  replayLabel,
-  completeLabel,
-  noSignalLabel,
-  videoNotSupportedLabel,
-  activeScenarioLabel,
-  onVideoPlaybackReadyChange,
-  videoStableKey,
-}) {
+const DemoPlayer = forwardRef(function DemoPlayer(
+  {
+    title,
+    rawVideoSrc,
+    analyzedVideoSrc,
+    isAnalyzing,
+    isAnalyzed,
+    analyzeStepLabels,
+    activeAnalyzeStepIndex,
+    onAnalyze,
+    onReset,
+    onReplay,
+    analyzeLabel,
+    resetLabel,
+    replayLabel,
+    completeLabel,
+    noSignalLabel,
+    videoNotSupportedLabel,
+    activeScenarioLabel,
+    onVideoPlaybackReadyChange,
+    onPlaybackTimeUpdate,
+    /** Fires once per analyzed clip when playback reaches the end (handles looping via time threshold). */
+    onPlaybackReachedEnd,
+    videoStableKey,
+    showAnalyzeCompleteImage,
+    analyzeCompleteImageAlt,
+  },
+  ref
+) {
   const videoRef = useRef(null);
   const currentVideoSrc = isAnalyzed ? analyzedVideoSrc : rawVideoSrc;
   const showVideo = Boolean(currentVideoSrc);
+
+  useImperativeHandle(
+    ref,
+    () => ({
+      seekToSeconds(seconds) {
+        const el = videoRef.current;
+        if (!el || !Number.isFinite(seconds)) return;
+        const max = Number.isFinite(el.duration) ? el.duration : seconds;
+        el.currentTime = Math.max(0, Math.min(seconds, max));
+      },
+      play() {
+        const el = videoRef.current;
+        if (!el) return;
+        const p = el.play();
+        if (p?.catch) p.catch(() => {});
+      },
+    }),
+    []
+  );
 
   useEffect(() => {
     const el = videoRef.current;
@@ -94,6 +126,47 @@ export default function DemoPlayer({
       if (playPromise?.catch) playPromise.catch(() => {});
     }
   }, [currentVideoSrc]);
+
+  // Drive demo timeline unlock from actual playback position (and seeks).
+  useEffect(() => {
+    if (!onPlaybackTimeUpdate || !showVideo) return undefined;
+    const el = videoRef.current;
+    if (!el) return undefined;
+    const notify = () => onPlaybackTimeUpdate(el.currentTime);
+    el.addEventListener('timeupdate', notify);
+    el.addEventListener('seeked', notify);
+    notify();
+    return () => {
+      el.removeEventListener('timeupdate', notify);
+      el.removeEventListener('seeked', notify);
+    };
+  }, [onPlaybackTimeUpdate, showVideo, currentVideoSrc, videoStableKey]);
+
+  // Unlock executive summary only after the user reaches end of the analyzed clip.
+  useEffect(() => {
+    if (!isAnalyzed || !onPlaybackReachedEnd || !showVideo) return undefined;
+    const el = videoRef.current;
+    if (!el) return undefined;
+    let reported = false;
+    const notify = () => {
+      if (reported) return;
+      onPlaybackReachedEnd();
+      reported = true;
+    };
+    const onEnded = () => notify();
+    const maybeNearEnd = () => {
+      const d = el.duration;
+      if (Number.isFinite(d) && d > 0 && el.currentTime >= d - 0.25) notify();
+    };
+    el.addEventListener('ended', onEnded);
+    el.addEventListener('timeupdate', maybeNearEnd);
+    el.addEventListener('seeked', maybeNearEnd);
+    return () => {
+      el.removeEventListener('ended', onEnded);
+      el.removeEventListener('timeupdate', maybeNearEnd);
+      el.removeEventListener('seeked', maybeNearEnd);
+    };
+  }, [isAnalyzed, onPlaybackReachedEnd, showVideo, currentVideoSrc, videoStableKey]);
 
   return (
     <div className="demo-panel demo-panel--hero flex flex-col min-h-0 flex-1">
@@ -124,9 +197,11 @@ export default function DemoPlayer({
         </div>
 
         <DemoAnalyzeOverlay
-          visible={isAnalyzing}
+          visible={isAnalyzing || showAnalyzeCompleteImage}
+          showCompleteImage={Boolean(showAnalyzeCompleteImage) && !isAnalyzing}
           activeStepIndex={activeAnalyzeStepIndex}
           stepLabels={analyzeStepLabels}
+          completeImageAlt={analyzeCompleteImageAlt}
         />
       </div>
 
@@ -134,7 +209,7 @@ export default function DemoPlayer({
         <div className="demo-hero-cta-wrap flex-1 sm:flex-none min-w-0">
           <button
             type="button"
-            disabled={isAnalyzing}
+            disabled={isAnalyzing || showAnalyzeCompleteImage}
             onClick={onAnalyze}
             className="btn-demo inline-flex w-full items-center justify-center px-8 py-3.5"
           >
@@ -144,7 +219,7 @@ export default function DemoPlayer({
         <div className="flex gap-2 sm:ms-auto">
           <button
             type="button"
-            disabled={isAnalyzing}
+            disabled={isAnalyzing || showAnalyzeCompleteImage}
             onClick={onReset}
             className="demo-secondary-btn px-5 py-3 rounded-lg text-sm font-medium flex-1 sm:flex-none"
           >
@@ -152,7 +227,7 @@ export default function DemoPlayer({
           </button>
           <button
             type="button"
-            disabled={isAnalyzing || !showVideo}
+            disabled={isAnalyzing || !showVideo || showAnalyzeCompleteImage}
             onClick={() => {
               const el = videoRef.current;
               if (el) {
@@ -169,4 +244,6 @@ export default function DemoPlayer({
       </div>
     </div>
   );
-}
+});
+
+export default DemoPlayer;

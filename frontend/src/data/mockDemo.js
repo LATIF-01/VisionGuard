@@ -32,6 +32,7 @@ const baseChatIntro = (scenarioTitle) => [
 /**
  * @typedef {Object} DemoTimelineEvent
  * @property {string} id
+ * @property {string} time — "MM:SS" from raw analysis (same as timeLabel when sourced from JSON)
  * @property {string} timeLabel
  * @property {string} text
  * @property {DemoSeverity} severity
@@ -137,6 +138,7 @@ function transformRawScenario(raw, overrides = {}) {
   const events = Array.isArray(safeRaw.events)
     ? safeRaw.events.map((ev, i) => ({
         id: `${id || 'scenario'}-e${i + 1}`,
+        time: ev?.time ?? '',
         timeLabel: ev?.time ?? '',
         // Prefer detailed `description`; fall back to `type` so the row never renders blank.
         text: ev?.description || ev?.type || '',

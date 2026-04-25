@@ -545,6 +545,13 @@ body {
   box-shadow: 0 0 18px -8px rgba(239, 68, 68, 0.8);
 }
 
+/* Selected timeline row: jump-to-video affordance */
+.demo-timeline-row--active {
+  box-shadow:
+    0 0 0 1px rgba(56, 189, 248, 0.45),
+    0 0 20px -6px rgba(56, 189, 248, 0.55);
+}
+
 .demo-critical-text {
   animation: demo-critical-pulse 1.2s ease-in-out infinite;
 }

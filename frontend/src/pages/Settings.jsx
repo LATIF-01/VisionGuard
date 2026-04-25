@@ -53,14 +53,15 @@ export default function Settings() {
   const langLabel = locale === 'ar' ? t('settings.langName.ar') : t('settings.langName.en');
 
   return (
-    <div className="space-y-6 max-w-2xl">
+    <div className="mx-auto max-w-6xl space-y-6">
       <div>
         <h1 className="text-2xl font-bold text-white">{t('settings.title')}</h1>
         <p className="text-vg-text-muted mt-1">{t('settings.subtitle')}</p>
       </div>
 
+      <div className="grid grid-cols-1 items-stretch gap-6 lg:grid-cols-2">
       {/* Language */}
-      <div className="card p-6 space-y-6">
+      <div className="card flex min-w-0 flex-col p-6 space-y-6">
         <div className="flex items-center gap-3 pb-4 border-b border-white/10">
           <div className="w-10 h-10 rounded-lg bg-vg-accent/20 flex items-center justify-center">
             <svg className="w-5 h-5 text-vg-accent" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -114,7 +115,7 @@ export default function Settings() {
         </div>
       </div>
 
-      <div className="card p-6 space-y-6">
+      <div className="card flex min-w-0 flex-col p-6 space-y-6">
         <div className="flex items-center gap-3 pb-4 border-b border-white/10">
           <div className="w-10 h-10 rounded-lg bg-vg-accent/20 flex items-center justify-center">
             <svg className="w-5 h-5 text-vg-accent" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -193,6 +194,7 @@ export default function Settings() {
             <p className="text-vg-text-muted text-xs leading-relaxed">{t('settings.infoNote')}</p>
           </div>
         ) : null}
+      </div>
       </div>
     </div>
   );
