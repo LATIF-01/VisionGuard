@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useAuthedApi } from '../lib/api';
+import { getStudentsDemoMode, setStudentsDemoMode, subscribeStudentsDemoMode } from '../lib/studentsDemoMode';
 import { useI18n } from '../i18n/useI18n';
 
 export default function Settings() {
@@ -9,7 +10,10 @@ export default function Settings() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
+  const [studentsDemo, setStudentsDemo] = useState(() => getStudentsDemoMode());
   const apiFetch = useAuthedApi();
+
+  useEffect(() => subscribeStudentsDemoMode(setStudentsDemo), []);
 
   const loadPrefs = useCallback(async () => {
     setLoading(true);
@@ -194,6 +198,57 @@ export default function Settings() {
             <p className="text-vg-text-muted text-xs leading-relaxed">{t('settings.infoNote')}</p>
           </div>
         ) : null}
+      </div>
+
+      <div className="card flex min-w-0 flex-col p-6 space-y-6 lg:col-span-2">
+        <div className="flex items-center gap-3 pb-4 border-b border-white/10">
+          <div className="w-10 h-10 rounded-lg bg-vg-accent/20 flex items-center justify-center">
+            <svg className="w-5 h-5 text-vg-accent" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"
+              />
+            </svg>
+          </div>
+          <div>
+            <h2 className="text-lg font-semibold text-white">{t('settings.studentsVersionTitle')}</h2>
+            <p className="text-vg-text-muted text-sm">{t('settings.studentsVersionDesc')}</p>
+          </div>
+        </div>
+
+        <div className="flex items-center justify-between p-4 rounded-lg bg-white/[0.03] border border-white/5">
+          <div className="flex items-center gap-4 min-w-0">
+            <div
+              className={`w-3 h-3 rounded-full shrink-0 ${studentsDemo ? 'bg-vg-success' : 'bg-white/20'}`}
+            />
+            <p className="text-white font-medium text-sm sm:text-base">
+              {studentsDemo ? t('settings.studentsVersionOn') : t('settings.studentsVersionOff')}
+            </p>
+          </div>
+          <button
+            type="button"
+            dir="ltr"
+            role="switch"
+            aria-checked={studentsDemo}
+            onClick={() => setStudentsDemoMode(!studentsDemo)}
+            className={`
+              relative w-12 h-7 rounded-full transition-colors duration-200 shrink-0
+              focus:outline-none focus:ring-2 focus:ring-vg-accent/50 focus:ring-offset-2 focus:ring-offset-vg-dark
+              cursor-pointer
+              ${studentsDemo ? 'bg-vg-accent' : 'bg-white/20'}
+            `}
+          >
+            <span
+              className={`
+                absolute top-0.5 left-0.5 w-6 h-6 rounded-full bg-white shadow-md
+                transition-transform duration-200
+                ${studentsDemo ? 'translate-x-5' : 'translate-x-0'}
+              `}
+            />
+          </button>
+        </div>
       </div>
       </div>
     </div>

@@ -158,6 +158,11 @@ export const translations = {
     'settings.langName.ar': 'Arabic',
     'settings.switchToEnglish': 'English',
     'settings.switchToArabic': 'العربية',
+    'settings.studentsVersionTitle': 'Students demo',
+    'settings.studentsVersionDesc':
+      'When on, the demo shows a short “information ready” image at the end of video analysis. When off, analysis completes without that screen.',
+    'settings.studentsVersionOn': 'End-of-analysis image is shown',
+    'settings.studentsVersionOff': 'End-of-analysis image is hidden',
 
     'llm.title': 'VisionGuard LLM',
     'llm.subtitle': 'Natural language event queries',
@@ -340,6 +345,11 @@ export const translations = {
     'settings.langName.ar': 'العربية',
     'settings.switchToEnglish': 'English',
     'settings.switchToArabic': 'العربية',
+    'settings.studentsVersionTitle': 'نسخة الطلاب',
+    'settings.studentsVersionDesc':
+      'عند التشغيل، يعرض "Demo" صورة اختصار "المعلومات جاهزة" في نهاية تحليل الفيديو. عند الإيقاف، يكتمل التحليل دون تلك الشاشة.',
+    'settings.studentsVersionOn': 'صورة نهاية التحليل ظاهرة',
+    'settings.studentsVersionOff': 'صورة نهاية التحليل مخفية',
 
     'llm.title': 'VisionGuard LLM',
     'llm.subtitle': 'استعلامات أحداث بلغة طبيعية',

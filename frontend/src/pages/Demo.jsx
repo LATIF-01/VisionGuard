@@ -13,6 +13,7 @@ import DemoSummaryCard from '../components/demo/DemoSummaryCard';
 import DemoTimeline from '../components/demo/DemoTimeline';
 import DemoChatPanel from '../components/demo/DemoChatPanel';
 import { countTimelineEventsUnlocked, parseMmSsToSeconds } from '../utils/demoTime';
+import { getStudentsDemoMode, subscribeStudentsDemoMode } from '../lib/studentsDemoMode';
 
 /** Total time the "analyze" overlay stays visible after clicking "Analyze video" */
 const ANALYZE_TOTAL_MS = 6000;
@@ -47,6 +48,7 @@ export default function Demo() {
   const chatReplyTimerRef = useRef(null);
   const playerRef = useRef(null);
   const [showAnalyzeCompleteImage, setShowAnalyzeCompleteImage] = useState(false);
+  const [studentsDemoMode, setStudentsDemoMode] = useState(() => getStudentsDemoMode());
 
   const scenario = useMemo(() => getDemoScenarioById(selectedId), [selectedId]);
 
@@ -98,6 +100,12 @@ export default function Demo() {
     if (chatReplyTimerRef.current) clearTimeout(chatReplyTimerRef.current);
     chatReplyTimerRef.current = null;
   }, []);
+
+  useEffect(() => subscribeStudentsDemoMode(setStudentsDemoMode), []);
+  // Drop the completion image immediately if the user turns "students mode" off from Settings
+  useEffect(() => {
+    if (!studentsDemoMode) clearAnalyzeCompleteImage();
+  }, [studentsDemoMode, clearAnalyzeCompleteImage]);
 
   // One place to stop timers and return to the pre-analysis UI state.
   const resetAnalysisState = useCallback(() => {
@@ -151,16 +159,18 @@ export default function Demo() {
       ]);
       clearAnalyzeTimers();
       clearAnalyzeCompleteImage();
-      setShowAnalyzeCompleteImage(true);
-      analyzeCompleteImageTimerRef.current = setTimeout(() => {
-        setShowAnalyzeCompleteImage(false);
-        analyzeCompleteImageTimerRef.current = null;
-      }, ANALYZE_COMPLETE_IMAGE_MS);
+      if (studentsDemoMode) {
+        setShowAnalyzeCompleteImage(true);
+        analyzeCompleteImageTimerRef.current = setTimeout(() => {
+          setShowAnalyzeCompleteImage(false);
+          analyzeCompleteImageTimerRef.current = null;
+        }, ANALYZE_COMPLETE_IMAGE_MS);
+      }
     }, ANALYZE_FINISH_MS);
     analyzeTimersRef.current.push(finishId);
 
     return () => clearAnalyzeTimers();
-  }, [isAnalyzing, clearAnalyzeCompleteImage, clearAnalyzeTimers, t]);
+  }, [isAnalyzing, studentsDemoMode, clearAnalyzeCompleteImage, clearAnalyzeTimers, t]);
 
   const handlePlaybackReachedEnd = useCallback(() => {
     setSummaryUnlocked(true);
