@@ -1,6 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
 import { useAuthedApi } from '../lib/api';
-import { mockChatHistory } from '../data/mockChat';
 import { useI18n } from '../i18n/useI18n';
 
 export default function LLMQuery() {
@@ -10,7 +9,6 @@ export default function LLMQuery() {
   const [runId, setRunId] = useState(null);
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
-  const [useMockFallback, setUseMockFallback] = useState(false);
   const chatEndRef = useRef(null);
   const nextId = useRef(1);
   const apiFetch = useAuthedApi();
@@ -38,7 +36,6 @@ export default function LLMQuery() {
               timestamp: new Date().toISOString(),
             },
           ]);
-          setUseMockFallback(false);
           return;
         }
 
@@ -59,12 +56,17 @@ export default function LLMQuery() {
             timestamp: new Date().toISOString(),
           },
         ]);
-        setUseMockFallback(false);
       } catch {
         if (!cancelled) {
           setRunId(null);
-          setMessages(mockChatHistory);
-          setUseMockFallback(true);
+          setMessages([
+            {
+              id: 'no-run',
+              role: 'assistant',
+              content: t('llm.noRunMsg'),
+              timestamp: new Date().toISOString(),
+            },
+          ]);
         }
       } finally {
         if (!cancelled) setLoading(false);
@@ -91,13 +93,13 @@ export default function LLMQuery() {
     setMessages((m) => [...m, userMessage]);
     setInputValue('');
 
-    if (!runId || useMockFallback) {
+    if (!runId) {
       setMessages((m) => [
         ...m,
         {
           id: `a-${nextId.current++}`,
           role: 'assistant',
-          content: useMockFallback ? t('llm.demoReply') : t('llm.noRunReply'),
+          content: t('llm.noRunReply'),
           timestamp: new Date().toISOString(),
         },
       ]);
@@ -164,7 +166,7 @@ export default function LLMQuery() {
             <h1 className="text-xl font-bold text-white">{t('llm.title')}</h1>
             <p className="text-vg-text-muted text-sm">
               {t('llm.subtitle')}
-              {runId && !useMockFallback && (
+              {runId && (
                 <span className="ms-2 text-vg-accent/80">
                   {t('llm.runHint', { runId: `${runId.slice(0, 8)}…` })}
                 </span>
@@ -173,12 +175,6 @@ export default function LLMQuery() {
           </div>
         </div>
       </div>
-
-      {useMockFallback && (
-        <div className="mt-3 rounded-lg border border-vg-warning/40 bg-vg-warning/10 px-4 py-2 text-xs text-vg-text-muted">
-          {t('llm.mockBanner')}
-        </div>
-      )}
 
       <div className="flex-1 overflow-y-auto py-4 space-y-4">
         <div className="text-center py-6">

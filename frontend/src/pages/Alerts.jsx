@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { getApiBaseUrl, useAuthedApi } from '../lib/api';
-import { mockAlerts } from '../data/mockAlerts';
+import { useAuthedApi } from '../lib/api';
 import { useI18n } from '../i18n/useI18n';
 
 const severityStyle = {
@@ -69,11 +68,9 @@ function DismissIconButton({ onDismiss, ariaLabel }) {
 }
 
 export default function Alerts() {
-  const { t, locale } = useI18n();
+  const { t } = useI18n();
   const [alerts, setAlerts] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [source, setSource] = useState('api');
-  const [offlineBannerDismissed, setOfflineBannerDismissed] = useState(false);
   const apiFetch = useAuthedApi();
   const tRef = useRef(t);
   tRef.current = t;
@@ -89,7 +86,6 @@ export default function Alerts() {
 
         if (!runs.length) {
           setAlerts([]);
-          setSource('api');
           return;
         }
 
@@ -100,17 +96,8 @@ export default function Alerts() {
         const mapped = raw.map((a) => mapActionAlert(a, run, (k, p) => tRef.current(k, p)));
         mapped.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
         setAlerts(mapped);
-        setSource('api');
       } catch {
-        if (!cancelled) {
-          setAlerts(
-            mockAlerts.map((a) => ({
-              ...a,
-              camera: tRef.current('alerts.latestRun'),
-            }))
-          );
-          setSource('mock');
-        }
+        if (!cancelled) setAlerts([]);
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -121,11 +108,6 @@ export default function Alerts() {
       cancelled = true;
     };
   }, [apiFetch]);
-
-  useEffect(() => {
-    if (source !== 'mock') return;
-    setAlerts((prev) => prev.map((a) => ({ ...a, camera: t('alerts.latestRun') })));
-  }, [locale, source, t]);
 
   const criticalCount = alerts.filter((a) => a.type === 'critical').length;
   const warningCount = alerts.filter((a) => a.type === 'warning').length;
@@ -147,17 +129,7 @@ export default function Alerts() {
         </div>
       </div>
 
-      {source === 'mock' && !offlineBannerDismissed && (
-        <div className="relative rounded-lg border border-vg-warning/40 bg-vg-warning/10 px-4 py-3 pe-11 sm:pe-12 text-sm text-vg-text-muted">
-          <DismissIconButton
-            onDismiss={() => setOfflineBannerDismissed(true)}
-            ariaLabel={t('alerts.dismissOffline')}
-          />
-          {t('alerts.offlineBanner', { url: getApiBaseUrl() })}
-        </div>
-      )}
-
-      {source === 'api' && !loading && alerts.length === 0 && (
+      {!loading && alerts.length === 0 && (
         <div className="card p-8 text-center text-vg-text-muted">{t('alerts.emptyState')}</div>
       )}
 

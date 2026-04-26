@@ -118,8 +118,6 @@ export const translations = {
     'alerts.subtitle': 'Monitor and respond to detected events',
     'alerts.criticalBadge': '{{count}} Critical',
     'alerts.warningsBadge': '{{count}} Warnings',
-    'alerts.offlineBanner': 'Could not reach the API at {{url}}. Showing offline demo alerts until the backend is running.',
-    'alerts.dismissOffline': 'Dismiss offline notice',
     'alerts.emptyState':
       'No alerts yet for the latest video run. Process a video and persist alerts to the database to see them here.',
     'alerts.filterAll': 'All Alerts',
@@ -141,7 +139,8 @@ export const translations = {
     'settings.subtitle': 'Manage your notification preferences',
     'settings.emailNotifTitle': 'Email Notifications',
     'settings.emailNotifDesc': 'Receive email alerts when the system detects suspicious activity',
-    'settings.loadError': 'Could not load notification settings. Make sure the backend is running.',
+    'settings.emailNotifEmptyHint':
+      'Your email alert preferences will appear here once they can be loaded from the server.',
     'settings.updateError': 'Failed to update preferences. Please try again.',
     'settings.successEnabled': 'Email alerts enabled — you will receive notifications.',
     'settings.successDisabled': 'Email alerts disabled — you will no longer receive email notifications.',
@@ -167,8 +166,6 @@ export const translations = {
     'llm.title': 'VisionGuard LLM',
     'llm.subtitle': 'Natural language event queries',
     'llm.runHint': '· Run {{runId}}',
-    'llm.mockBanner':
-      'API unavailable — showing demo conversation. Set VITE_API_BASE_URL and start FastAPI to use live LLM (POST /runs/<run_id>/llm).',
     'llm.connecting': 'Connecting…',
     'llm.ready': 'VisionGuard LLM is ready',
     'llm.placeholder': 'Ask VisionGuard about events...',
@@ -178,8 +175,6 @@ export const translations = {
     'llm.noRunMsg':
       'No video runs found in the database. Ingest and process a video via the VisionGuard pipeline, then you can ask questions about that run.',
     'llm.connectedIntro': '**VisionGuard LLM** — connected to run `{{runId}}`\n\n{{summary}}',
-    'llm.demoReply':
-      'Demo mode: connect the API (see .env VITE_API_BASE_URL) and ensure a video run exists to use POST /runs/{run_id}/llm.',
     'llm.noRunReply': 'No run selected. Create a video run in the backend first.',
     'llm.requestFailed': 'Request failed: {{message}}',
     'llm.suggestion1': 'Show recent alerts',
@@ -304,9 +299,6 @@ export const translations = {
     'alerts.subtitle': 'راقب الأحداث المكتشفة وتعامل معها',
     'alerts.criticalBadge': '{{count}} حرجة',
     'alerts.warningsBadge': '{{count}} تحذيرات',
-    'alerts.offlineBanner':
-      'تعذر الوصول إلى "API" على {{url}}. عرض تنبيهات تجريبية دون اتصال حتى يعمل الخادم.',
-    'alerts.dismissOffline': 'إغلاق إشعار عدم الاتصال',
     'alerts.emptyState':
       'لا توجد تنبيهات بعد لآخر تشغيل فيديو. عالج فيديو واحفظ التنبيهات في قاعدة البيانات لعرضها هنا.',
     'alerts.filterAll': 'كل التنبيهات',
@@ -328,7 +320,8 @@ export const translations = {
     'settings.subtitle': 'إدارة تفضيلات الإشعارات',
     'settings.emailNotifTitle': 'إشعارات البريد',
     'settings.emailNotifDesc': 'استلام تنبيهات بالبريد عند اكتشاف نشاط مريب',
-    'settings.loadError': 'تعذر تحميل إعدادات الإشعارات. تأكد أن الخادم يعمل.',
+    'settings.emailNotifEmptyHint':
+      'تظهر هنا تفضيلات تنبيهات البريد تلقائياً عندما يتصل "التطبيق" بالخادم ويُحمَّل الحساب.',
     'settings.updateError': 'فشل حفظ التفضيلات. حاول مرة أخرى.',
     'settings.successEnabled': 'تم تفعيل تنبيهات البريد — ستصلك الإشعارات.',
     'settings.successDisabled': 'تم إيقاف تنبيهات البريد — لن تصلك رسائل إشعار.',
@@ -354,8 +347,6 @@ export const translations = {
     'llm.title': 'VisionGuard LLM',
     'llm.subtitle': 'استعلامات أحداث بلغة طبيعية',
     'llm.runHint': '· تشغيل {{runId}}',
-    'llm.mockBanner':
-      'واجهة "API" غير متاحة — عرض محادثة تجريبية. عيّن "VITE_API_BASE_URL" وشغّل "FastAPI" لاستخدام "LLM" الحي (POST /runs/<run_id>/llm).',
     'llm.connecting': 'جاري الاتصال…',
     'llm.ready': 'VisionGuard LLM جاهز',
     'llm.placeholder': 'اسأل VisionGuard عن الأحداث...',
@@ -365,8 +356,6 @@ export const translations = {
     'llm.noRunMsg':
       'لا توجد تشغيلات فيديو في قاعدة البيانات. أدخل وعالج فيديو عبر خط "VisionGuard"، ثم يمكنك السؤال عن ذلك التشغيل.',
     'llm.connectedIntro': '**VisionGuard LLM** — متصل بتشغيل `{{runId}}`\n\n{{summary}}',
-    'llm.demoReply':
-      'وضع تجريبي: صِل "API" (انظر "VITE_API_BASE_URL" في ".env") وتأكد من وجود تشغيل فيديو لاستخدام POST /runs/{run_id}/llm.',
     'llm.noRunReply': 'لم يُحدد تشغيل. أنشئ تشغيل فيديو في الخادم أولاً.',
     'llm.requestFailed': 'فشل الطلب: {{message}}',
     'llm.suggestion1': 'عرض أحدث التنبيهات',

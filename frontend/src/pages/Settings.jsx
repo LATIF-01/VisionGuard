@@ -22,7 +22,7 @@ export default function Settings() {
       const data = await apiFetch('/me/notifications');
       setPref(data);
     } catch {
-      setError(t('settings.loadError'));
+      /* pref stays null; same neutral copy as a loaded-empty state */
     } finally {
       setLoading(false);
     }
@@ -197,7 +197,9 @@ export default function Settings() {
 
             <p className="text-vg-text-muted text-xs leading-relaxed">{t('settings.infoNote')}</p>
           </div>
-        ) : null}
+        ) : (
+          <p className="text-vg-text-muted text-sm leading-relaxed">{t('settings.emailNotifEmptyHint')}</p>
+        )}
       </div>
 
       <div className="card flex min-w-0 flex-col p-6 space-y-6 lg:col-span-2">
