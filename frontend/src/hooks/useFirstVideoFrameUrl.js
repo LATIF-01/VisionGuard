@@ -22,13 +22,19 @@ export function useFirstVideoFrameUrl(videoUrl) {
   });
 
   useEffect(() => {
+    let cancelled = false;
     if (!videoUrl) {
-      setState({ status: 'idle', imageUrl: null });
-      return undefined;
+      queueMicrotask(() => {
+        if (!cancelled) setState({ status: 'idle', imageUrl: null });
+      });
+      return () => {
+        cancelled = true;
+      };
     }
 
-    let cancelled = false;
-    setState({ status: 'loading', imageUrl: null });
+    queueMicrotask(() => {
+      if (!cancelled) setState({ status: 'loading', imageUrl: null });
+    });
 
     const video = document.createElement('video');
     video.muted = true;

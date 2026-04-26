@@ -104,7 +104,7 @@ export default function Demo() {
   useEffect(() => subscribeStudentsDemoMode(setStudentsDemoMode), []);
   // Drop the completion image immediately if the user turns "students mode" off from Settings
   useEffect(() => {
-    if (!studentsDemoMode) clearAnalyzeCompleteImage();
+    if (!studentsDemoMode) queueMicrotask(() => clearAnalyzeCompleteImage());
   }, [studentsDemoMode, clearAnalyzeCompleteImage]);
 
   // One place to stop timers and return to the pre-analysis UI state.
@@ -121,7 +121,7 @@ export default function Demo() {
   }, [clearAnalyzeCompleteImage, clearAnalyzeTimers, clearChatReplyTimer]);
 
   useEffect(() => {
-    if (!isAnalyzed) setSummaryUnlocked(false);
+    if (!isAnalyzed) queueMicrotask(() => setSummaryUnlocked(false));
   }, [isAnalyzed]);
 
   useEffect(

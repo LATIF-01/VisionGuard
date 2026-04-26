@@ -38,24 +38,17 @@ function readStoredCameras() {
 
 export default function Dashboard() {
   const { t } = useI18n();
-  const [cameras, setCameras] = useState(/** @type {DashboardCamera[]} */ ([]));
-  const [hydrated, setHydrated] = useState(false);
+  // Browser-only: Vite has no SSR; lazy init reads persisted rows once per mount.
+  const [cameras, setCameras] = useState(() => readStoredCameras());
   const [modalOpen, setModalOpen] = useState(false);
 
-  // Load from localStorage after mount (browser-only).
   useEffect(() => {
-    setCameras(readStoredCameras());
-    setHydrated(true);
-  }, []);
-
-  useEffect(() => {
-    if (!hydrated) return;
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(cameras));
     } catch {
       /* ignore quota / private mode */
     }
-  }, [cameras, hydrated]);
+  }, [cameras]);
 
   const addCamera = useCallback((next) => {
     setCameras((prev) => [...prev, next]);
