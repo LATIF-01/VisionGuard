@@ -5,6 +5,7 @@ from threading import Thread
 from typing import Any, Deque, Dict, Optional, Tuple
 
 import cv2
+import os
 import numpy as np
 from ultralytics import YOLO
 
@@ -21,6 +22,7 @@ from src.models.action.x3d_recognizer import (
 )
 from src.models.detection.box_utils import expand_box, get_object_label
 from src.models.segmentation.person_mask import apply_person_segmentation_mask
+from src.models.segmentation.scene_segmentation import SceneSegmentationEngine
 from src.models.tracking.embedding_manager import EmbeddingManager
 
 
@@ -111,6 +113,7 @@ class AsyncDBEventSink:
 		frame_width: int,
 		frame_height: int,
 		run_name: str = "",
+		scene_context_topk: int = 5,
 	):
 		self._sink_kwargs = {
 			"input_path": input_path,
@@ -119,6 +122,7 @@ class AsyncDBEventSink:
 			"frame_width": int(frame_width),
 			"frame_height": int(frame_height),
 			"run_name": run_name,
+			"scene_context_topk": int(scene_context_topk),
 		}
 		self._sink: Optional[DBEventSink] = None
 		self._run_id = ""
@@ -238,6 +242,20 @@ def run(args) -> None:
 		crop_size=args.crop_size,
 		model_name=args.action_model,
 	)
+	
+	# Initialize scene segmentation if enabled
+	scene_segmenter = None
+	scene_segmentation_result = None
+	if args.enable_scene_segmentation:
+		try:
+			scene_segmenter = SceneSegmentationEngine(
+				device=args.device,
+				model_name=args.scene_segmentation_model,
+			)
+		except Exception as e:
+			print(f"Warning: Failed to initialize scene segmentation: {e}")
+			scene_segmenter = None
+	
 	expected_num_classes = recognizer.expected_num_classes
 
 	embedding_mgr = EmbeddingManager(device=args.device)
@@ -363,6 +381,7 @@ def run(args) -> None:
 			frame_width=frame_w,
 			frame_height=frame_h,
 			run_name=args.db_run_name,
+			scene_context_topk=args.scene_context_topk,
 		)
 
 	writer = cv2.VideoWriter(
@@ -376,6 +395,17 @@ def run(args) -> None:
 		ok, frame = cap.read()
 		if not ok:
 			break
+
+		# Run scene segmentation once on the first frame
+		if frame_idx == 0 and scene_segmenter is not None:
+			try:
+				scene_segmentation_result = scene_segmenter.segment_scene(frame)
+				scene_description = scene_segmenter.get_scene_description(scene_segmentation_result)
+				print("Scene segmentation complete on first frame:")
+				print(scene_description)
+			except Exception as e:
+				print(f"Error during scene segmentation: {e}")
+				scene_segmentation_result = None
 
 		active_stable_ids_this_frame = set()
 		frame_person_count = 0
@@ -424,6 +454,42 @@ def run(args) -> None:
 
 				if x1 >= x2 or y1 >= y2 or x1 < 0 or y1 < 0 or x2 > frame_w or y2 > frame_h:
 					continue
+
+				# Build scene context from segmentation map within 1.5x expanded bbox
+				scene_context_local = []
+				if scene_segmentation_result is not None:
+					try:
+						ctx_x1, ctx_y1, ctx_x2, ctx_y2 = expand_box(raw_x1, raw_y1, raw_x2, raw_y2, frame_w, frame_h, float(args.scene_context_expansion))
+						seg_map = scene_segmentation_result.get("segmentation_map")
+						if seg_map is not None and ctx_x2 > ctx_x1 and ctx_y2 > ctx_y1:
+							sub = seg_map[ctx_y1:ctx_y2, ctx_x1:ctx_x2]
+							if sub.size > 0:
+								vals, counts = np.unique(sub, return_counts=True)
+								order = np.argsort(-counts)
+								topk = int(getattr(args, "scene_context_topk", 5))
+								for idx in order[:topk]:
+									cls_id = int(vals[idx])
+									cnt = int(counts[idx])
+									label = (
+										scene_segmenter.label_names[cls_id]
+										if (scene_segmenter is not None and cls_id < len(scene_segmenter.label_names))
+										else f"class_{cls_id}"
+									)
+									pct = round(100.0 * cnt / float(sub.size), 2)
+									scene_context_local.append({"class": label, "pixels": cnt, "pct": pct})
+								# Optionally save the context crop image
+								save_path = getattr(args, "scene_context_save_path", "")
+								if save_path:
+									try:
+										os.makedirs(save_path, exist_ok=True)
+										crop_img = frame[ctx_y1:ctx_y2, ctx_x1:ctx_x2]
+										fname = f"frame{frame_idx}_raw{raw_track_id}.png"
+										cv2.imwrite(os.path.join(save_path, fname), crop_img)
+									except Exception:
+										pass
+					except Exception:
+						# keep scene_context_local empty on any failure
+						pass
 
 				emb_crop = frame[y1:y2, x1:x2]
 				if emb_crop.size == 0 or emb_crop.shape[0] < 10 or emb_crop.shape[1] < 10:
@@ -620,6 +686,7 @@ def run(args) -> None:
 					"det_conf": round(float(conf), 4),
 					"bbox_xyxy": [int(x1), int(y1), int(x2), int(y2)],
 					"mask_ratio": round(float(mask_ratio), 4),
+					"scene_context": [],
 					"identity_update_ok": bool(identity_update_ok),
 					"memory_update_ok": bool(memory_update_ok),
 					"action_label": action_label,
@@ -629,6 +696,8 @@ def run(args) -> None:
 				}
 
 				if async_event_logger is not None:
+					# Attach scene context collected earlier (if any)
+					event_payload["scene_context"] = scene_context_local if 'scene_context_local' in locals() else []
 					async_event_logger.log_track(event_payload)
 				if async_db_sink is not None:
 					async_db_sink.add_track_event(event_payload)
@@ -657,7 +726,16 @@ def run(args) -> None:
 
 				draw_modern_box(frame, x1, y1, x2, y2)
 
-		writer.write(frame)
+		# Apply scene segmentation visualization to first frame if enabled
+		output_frame = frame.copy()
+		if frame_idx == 0 and args.visualize_scene_segmentation and scene_segmentation_result is not None:
+			try:
+				output_frame = scene_segmenter.visualize_segmentation(scene_segmentation_result, frame, alpha=0.7)
+				print(f"Scene segmentation visualization applied to frame 0")
+			except Exception as e:
+				print(f"Error applying scene visualization: {e}")
+
+		writer.write(output_frame)
 		if async_event_logger is not None and args.event_log_frames:
 			async_event_logger.log_frame(
 				frame_idx=frame_idx,

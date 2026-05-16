@@ -60,6 +60,8 @@ class EventSegment(Base):
 
     first_raw_track_id = Column(Integer, nullable=True)
     last_raw_track_id = Column(Integer, nullable=True)
+    # Comma-separated top-K scene context classes for this segment (e.g. "building,sidewalk,tree")
+    scene_context = Column(Text, nullable=True)
 
     run = relationship("VideoRun", back_populates="segments")
 
@@ -110,3 +112,5 @@ class MinimalEventSegment(Base):
     action_label = Column(String(200), nullable=False)
     start_timestamp_s = Column(Float, nullable=False)
     end_timestamp_s = Column(Float, nullable=False)
+    # Comma-separated top-K scene context classes for this minimal segment
+    scene_context = Column(Text, nullable=True)

@@ -49,6 +49,12 @@ def parse_args() -> argparse.Namespace:
 	parser.add_argument("--seg-min-foreground-ratio", type=float, default=0.15, help="Minimum foreground ratio to trust segmented embeddings")
 	parser.add_argument("--visualize-seg-mask", action="store_true", help="Overlay segmentation mask on output video")
 	parser.add_argument("--seg-overlay-alpha", type=float, default=0.35, help="Overlay alpha for segmentation mask visualization")
+	parser.add_argument("--enable-scene-segmentation", action="store_true", help="Enable semantic scene segmentation at video start")
+	parser.add_argument("--scene-segmentation-model", default="nvidia/segformer-b0-finetuned-ade-512-512", help="HuggingFace model ID for scene segmentation")
+	parser.add_argument("--visualize-scene-segmentation", action="store_true", help="Overlay scene segmentation on output video")
+	parser.add_argument("--scene-context-expansion", type=float, default=1.5, help="Expansion factor for sampling scene context around detection bbox")
+	parser.add_argument("--scene-context-topk", type=int, default=5, help="Number of top segmentation classes to include per detection in logs")
+	parser.add_argument("--scene-context-save-path", default="", help="Optional path to save per-detection scene crops (png)")
 	parser.add_argument(
 		"--action-model",
 		default="x3d_l",

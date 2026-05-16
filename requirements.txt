@@ -88,6 +88,7 @@ torch==2.11.0+cu126
 torchreid==0.2.5
 torchvision==0.26.0+cu126
 tqdm==4.67.3
+transformers==4.44.2
 triton==3.6.0
 typing-inspection==0.4.2
 typing_extensions==4.15.0

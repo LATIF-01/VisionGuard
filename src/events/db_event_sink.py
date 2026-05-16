@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import json
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Dict, Optional, Tuple
 
@@ -30,6 +30,8 @@ class SegmentAccumulator:
     sample_count: int
     first_raw_track_id: Optional[int]
     last_raw_track_id: Optional[int]
+    # accumulate per-segment scene context counts (class -> pixels or occurance weight)
+    scene_context_counts: Dict[str, int] = field(default_factory=dict)
 
     @classmethod
     def from_event(cls, event: Dict) -> "SegmentAccumulator":
@@ -57,6 +59,11 @@ class SegmentAccumulator:
             sample_count=1,
             first_raw_track_id=raw_track_id_int,
             last_raw_track_id=raw_track_id_int,
+            scene_context_counts={
+                str(c.get("class", c.get("label", ""))): int(c.get("pixels", 0))
+                for c in (event.get("scene_context") or [])
+                if (c.get("class") or c.get("label"))
+            },
         )
 
     def dedupe_key(self) -> Tuple:
@@ -86,6 +93,13 @@ class SegmentAccumulator:
         self.identity_update_ok = self.identity_update_ok and bool(event.get("identity_update_ok", False))
         self.memory_update_ok = self.memory_update_ok and bool(event.get("memory_update_ok", False))
         self.last_raw_track_id = int(event["raw_track_id"]) if event.get("raw_track_id") is not None else self.last_raw_track_id
+        # merge scene context counts from the new event into the accumulator
+        for c in (event.get("scene_context") or []):
+            label = str(c.get("class", c.get("label", "")))
+            if not label:
+                continue
+            pixels = int(c.get("pixels", 0))
+            self.scene_context_counts[label] = self.scene_context_counts.get(label, 0) + pixels
 
 
 class DBEventSink:
@@ -100,6 +114,7 @@ class DBEventSink:
         frame_height: int,
         run_name: str = "",
         commit_every_segments: int = 50,
+        scene_context_topk: int = 5,
     ):
         init_db()
         self.session: Session = SessionLocal()
@@ -120,6 +135,7 @@ class DBEventSink:
         self.last_frame_idx = 0
         self._pending_segments = 0
         self._commit_every_segments = max(int(commit_every_segments), 1)
+        self._scene_context_topk = int(scene_context_topk) if scene_context_topk is not None else 0
 
     @property
     def run_id(self) -> str:
@@ -170,6 +186,22 @@ class DBEventSink:
 
     def _flush_segment(self, segment: SegmentAccumulator) -> None:
         sample_count = max(int(segment.sample_count), 1)
+        # build comma-separated top-K scene context from accumulated counts
+        scene_context_csv = None
+        try:
+            if segment.scene_context_counts:
+                sorted_items = sorted(
+                    segment.scene_context_counts.items(), key=lambda kv: kv[1], reverse=True
+                )
+                k = max(int(self._scene_context_topk), 0)
+                if k > 0:
+                    topk = [label for label, _ in sorted_items[:k]]
+                else:
+                    topk = [label for label, _ in sorted_items]
+                scene_context_csv = ",".join(topk) if topk else None
+        except Exception:
+            scene_context_csv = None
+
         row = EventSegment(
             run_id=self._run_id,
             stable_id=segment.stable_id,
@@ -188,6 +220,7 @@ class DBEventSink:
             sample_count=sample_count,
             first_raw_track_id=segment.first_raw_track_id,
             last_raw_track_id=segment.last_raw_track_id,
+            scene_context=scene_context_csv,
         )
         self.session.add(row)
         self._pending_segments += 1
